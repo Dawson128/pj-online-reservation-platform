@@ -1,0 +1,130 @@
+# 复制到目标仓库 docs/collaboration/repository-policy.yaml 后填入真实信息。
+# null/空列表表示尚未接入；本文件是 Agent 读取的项目规则，不会自行配置 GitHub。
+schema_version: 1
+status: template
+repository:
+  url: null                    # 必填；由用户提供
+  url_source: user
+  host: null                   # 根据用户链接解析
+  owner: null
+  name: null
+  local_path: null
+  base_branch: null             # 根据真实默认分支/项目规则读取
+  git_transport: ssh
+  push_repository_url: null     # fork 时由用户提供或确认
+workflow:
+  profile: school              # 通用其他项目填 project
+  execution_mode: commands     # 用户授权代执行时可用 execute
+  branch_patterns:
+    - g1/{task}
+    - g2/{task}
+    - g3/{task}
+    - g4/{task}
+    - g5/{task}
+    - g6/{task}
+  proposed_merge_method: merge
+  effective_merge_method: null  # 实际规则与平台核对后填写
+  plan_review_before_implementation: true
+  human_acceptance_before_commit: true
+  conflict_editor: human
+  min_non_author_approvals: 1
+  all_affected_groups_review: true
+owners:
+  # 六人各一个模块。使用时在对话里声明 G1–G6，不必预先填 github_members。同服务的两人不是共同所有者。
+  # 三个 service 是部署单元：reservation=G1+G4，approval=G2+G5，maintenance=G3+G6。
+  groups:
+    g1: {duty: 个人预约, service: reservation, github_members: [], github_team: null}
+    g2: {duty: 整室审批, service: approval, github_members: [], github_team: null}
+    g3: {duty: 报修维修, service: maintenance, github_members: [], github_team: null}
+    g4: {duty: 空间资源, service: reservation, github_members: [], github_team: null}
+    g5: {duty: 身份权限, service: approval, github_members: [], github_team: null}
+    g6: {duty: 通知审计与工程集成, service: maintenance, github_members: [], github_team: null}
+  paths:
+    apps/web/src/features/g1/: [g1]
+    apps/web/src/features/g2/: [g2]
+    apps/web/src/features/g3/: [g3]
+    apps/web/src/features/g4/: [g4]
+    apps/web/src/features/g5/: [g5]
+    apps/web/src/features/g6/: [g6]
+    services/reservation/modules/g1/: [g1]
+    services/reservation/modules/g4/: [g4]
+    services/reservation/integration/: [g4]
+    services/approval/modules/g2/: [g2]
+    services/approval/modules/g5/: [g5]
+    services/maintenance/modules/g3/: [g3]
+    services/maintenance/modules/g6/: [g6]
+    db/m1/g1/: [g1]
+    db/m1/g4/: [g4]
+    db/m2/g2/: [g2]
+    db/m2/g5/: [g5]
+    db/m3/g3/: [g3]
+    db/m3/g6/: [g6]
+    contracts/openapi/g1.yaml: [g1]
+    contracts/openapi/g2.yaml: [g2]
+    contracts/openapi/g3.yaml: [g3]
+    contracts/openapi/g4.yaml: [g4]
+    contracts/openapi/g5.yaml: [g5]
+    contracts/openapi/g6.yaml: [g6]
+    contracts/events/g1/: [g1]
+    contracts/events/g2/: [g2]
+    contracts/events/g3/: [g3]
+    contracts/events/g4/: [g4]
+    contracts/events/g5/: [g5]
+    contracts/events/g6/: [g6]
+    contracts/local/g1.md: [g1]
+    contracts/local/g2.md: [g2]
+    contracts/local/g3.md: [g3]
+    contracts/local/g4.md: [g4]
+    contracts/local/g5.md: [g5]
+    contracts/local/g6.md: [g6]
+    # contracts/common 按类型拆所有者，改动还要全部消费者评审：
+    # 身份类型 g5，资源类型 g4，信封与错误 g6。
+    apps/web/src/app/: [g6]
+    shared/ui/: [g6]
+    infra/: [g6]
+    .github/: [g6]
+  startup_assembly: g6          # 各服务启动装配；不承载领域规则。路径以仓库实际启动类为准。
+  unmapped_path_policy: require_owner_assignment
+verification:
+  # 每项填写真实 working_directory、argv 数组和证据路径。空列表表示未配置，不代表不需要验证。
+  frontend_typecheck: []
+  frontend_build: []
+  service_builds_and_unit_tests: []
+  database_tests: []
+  contract_tests: []
+  architecture_boundary_tests: []
+  integration_tests: []
+  migration_and_seed_tests: []
+  credential_scan: []
+  human_ui_and_mail_acceptance: []
+github_controls:
+  verified_at: null
+  evidence_url: null
+  rule_ids: []
+  required_check_names: []
+  owner_coverage_check: null
+  strict_up_to_date_or_queue: null
+  dismiss_stale_reviews: null
+  no_bypass_verified: null
+  tag_protection_verified: null
+  production_approval_verified: null
+release:
+  tag_pattern: vMAJOR.MINOR.PATCH
+  # 四个部署组件。模块所有者见 owners.groups，不把一个服务当成一个人。
+  components: [web, reservation, approval, maintenance]
+  schemas: [m1, m2, m3]
+  test_environment: null
+  production_environment: null
+  shared_environment_lock: null
+  server_lock_mechanism: null
+  # 三 schema 各自 Flyway。顺序按兼容性：扩展先、提供方先于消费者。禁止只按 schema 名字排序。
+  migration_order: null
+  manifest_location: null
+  rollback_manifest: null
+  schema_compatibility: null
+evidence:
+  task_records: docs/tasks
+  decision_records: docs/decisions
+  conflict_records: docs/conflicts
+  release_records: docs/releases
+  traceability_file: null
