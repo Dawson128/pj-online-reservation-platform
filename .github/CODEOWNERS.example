@@ -1,0 +1,20 @@
+# TEMPLATE ONLY. Copy to CODEOWNERS after replacing every account with real owners.
+# Same-line multiple owners mean ANY one approval, not approval from every group.
+# Last matching pattern wins. Do not enable placeholder accounts.
+/apps/web/src/features/g1/ @G1_ACCOUNT
+/apps/web/src/features/g2/ @G2_ACCOUNT
+/apps/web/src/features/g3/ @G3_ACCOUNT
+/apps/web/src/features/g4/ @G4_ACCOUNT
+/apps/web/src/features/g5/ @G5_ACCOUNT
+/apps/web/src/features/g6/ @G6_ACCOUNT
+/services/reservation/modules/g1/ @G1_ACCOUNT
+/services/reservation/modules/g4/ @G4_ACCOUNT
+/services/reservation/integration/ @G4_ACCOUNT
+/services/approval/modules/g2/ @G2_ACCOUNT
+/services/approval/modules/g5/ @G5_ACCOUNT
+/services/maintenance/modules/g3/ @G3_ACCOUNT
+/services/maintenance/modules/g6/ @G6_ACCOUNT
+/apps/web/src/app/ @G6_ACCOUNT
+/infra/ @G6_ACCOUNT
+/.github/ @G6_ACCOUNT
+/AGENTS.md @G6_ACCOUNT
