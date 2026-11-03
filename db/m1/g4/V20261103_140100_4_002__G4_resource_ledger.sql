@@ -63,10 +63,16 @@ CREATE TABLE resource_claim (
     -- 个人预约一定有结束时刻；REPAIR 未释放时 end 为 NULL 属正常
     CONSTRAINT resource_claim_personal_end_ck
         CHECK (source_type <> 'PERSONAL' OR end_at IS NOT NULL),
-    -- 释放时间只在非 ACTIVE 状态出现，且不早于生效时刻
+    -- 整室占用来自 G2 的申请快照，区间必有界。缺 end 会把整间永久锁死，属数据错误。
+    CONSTRAINT resource_claim_whole_end_ck
+        CHECK (source_type <> 'WHOLE' OR end_at IS NOT NULL),
+    -- RELEASED 必须有释放时刻，否则无法判断占用何时结束；
+    -- 其他终态（INVALIDATED / REJECTED / EXPIRED）由维护或裁决产生，可以没有释放时刻。
     CONSTRAINT resource_claim_release_ck CHECK (
-        (released_at IS NULL)
-        OR (released_at >= effective_at AND state <> 'ACTIVE')
+        CASE
+            WHEN state = 'RELEASED' THEN released_at IS NOT NULL AND released_at >= effective_at
+            ELSE released_at IS NULL OR released_at >= effective_at
+        END
     )
 );
 
