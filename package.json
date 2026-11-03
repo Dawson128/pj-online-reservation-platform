@@ -1,0 +1,17 @@
+{
+  "name": "campus-resources",
+  "private": true,
+  "version": "0.1.0",
+  "engines": {
+    "node": ">=24.0.0 <25"
+  },
+  "workspaces": [
+    "apps/web"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace apps/web",
+    "build": "npm run build --workspace apps/web",
+    "test": "npm run test --workspace apps/web",
+    "check": "node infra/scripts/check-repository.mjs"
+  }
+}

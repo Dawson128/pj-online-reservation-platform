@@ -1,0 +1,15 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+  <parent><groupId>cn.edu.campus</groupId><artifactId>campus-platform</artifactId><version>0.1.0-SNAPSHOT</version><relativePath>../../pom.xml</relativePath></parent>
+  <artifactId>maintenance-service</artifactId>
+  <build>
+    <resources><resource><directory>src/main/resources</directory></resource><resource><directory>../../db/m3</directory><targetPath>db/migration</targetPath><includes><include>**/*.sql</include></includes></resource></resources>
+    <plugins>
+      <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
+      <plugin><groupId>org.codehaus.mojo</groupId><artifactId>build-helper-maven-plugin</artifactId><version>3.6.1</version><executions>
+        <execution><id>module-sources</id><phase>generate-sources</phase><goals><goal>add-source</goal></goals><configuration><sources><source>modules/g3/src/main/java</source><source>modules/g6/src/main/java</source><source>integration/src/main/java</source></sources></configuration></execution>
+        <execution><id>module-tests</id><phase>generate-test-sources</phase><goals><goal>add-test-source</goal></goals><configuration><sources><source>modules/g3/src/test/java</source><source>modules/g6/src/test/java</source><source>integration/src/test/java</source></sources></configuration></execution>
+      </executions></plugin>
+    </plugins>
+  </build>
+</project>
