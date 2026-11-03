@@ -1,0 +1,230 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://pj-online-reservation-platform/contracts/events/g4/E01-claim-invalidated.schema.json",
+  "title": "G4-E01 ClaimInvalidated",
+  "description": "维护导致整室申请占用永久失效时由 G4 发出。专发 G2-I01 做申请失效，G2 再发结果邮件；同时 G6 收同 eventId 用于审计。无额外邮件。\n\n生产者：G4（reservation-service）。依据：技术文档 v2.0 §8.1 事件表。\n\n信封字段（eventId..audit）由 G6 维护的 EventEnvelope 规定，本文件内联等价结构并标注 x-pending-common: G6；其公共定义落地后改为引用。\n\n必填与 null 约束：roomId 在此事件中必须非 null（业务事件）；operationId 可为 null；actorId 可为 null 表示系统任务发起。",
+  "x-contract": {
+    "owner": "G4",
+    "eventType": "ClaimInvalidated",
+    "producer": "G4",
+    "schemaVersion": 1,
+    "status": "draft",
+    "x-pending-common": "G6",
+    "consumers": ["G2", "G6"],
+    "baseline": "技术文档 v2.0 §8.1"
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "eventType",
+    "schemaVersion",
+    "producer",
+    "aggregate",
+    "aggregateVersion",
+    "roomId",
+    "occurredAt",
+    "actorId",
+    "actorKind",
+    "traceId",
+    "operationId",
+    "audit",
+    "payload"
+  ],
+  "properties": {
+    "eventId": { "$ref": "#/$defs/Id" },
+    "eventType": { "const": "ClaimInvalidated" },
+    "schemaVersion": { "const": 1 },
+    "producer": { "const": "G4" },
+    "aggregate": { "$ref": "#/$defs/Ref" },
+    "aggregateVersion": { "$ref": "#/$defs/Version" },
+    "roomId": { "$ref": "#/$defs/Id" },
+    "occurredAt": { "$ref": "#/$defs/Time" },
+    "actorId": {
+      "oneOf": [{ "$ref": "#/$defs/Id" }, { "type": "null" }]
+    },
+    "actorKind": { "enum": ["USER", "SYSTEM"] },
+    "traceId": { "$ref": "#/$defs/Id" },
+    "operationId": {
+      "oneOf": [{ "$ref": "#/$defs/Id" }, { "type": "null" }]
+    },
+    "audit": { "$ref": "#/$defs/Audit" },
+    "payload": { "$ref": "#/$defs/Payload" }
+  },
+  "$defs": {
+    "Id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "Version": { "type": "string", "pattern": "^[1-9][0-9]{0,18}$" },
+    "Time": { "type": "string", "format": "date-time" },
+    "Ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["type", "id"],
+      "properties": {
+        "type": {
+          "enum": ["PERSONAL", "WHOLE", "REPAIR", "ADMIN", "ACCOUNT", "CONFIG", "SYSTEM"]
+        },
+        "id": { "$ref": "#/$defs/Id" }
+      }
+    },
+    "AuditField": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "value"],
+      "properties": {
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "value": { "type": ["string", "null"], "maxLength": 500 }
+      }
+    },
+    "Audit": {
+      "type": "object",
+      "description": "审计事实。audit.id 必须等于 eventId。",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "producer",
+        "source",
+        "roomId",
+        "scopeKind",
+        "actorId",
+        "actorKind",
+        "action",
+        "before",
+        "after",
+        "reason",
+        "result",
+        "errorCode",
+        "effectiveAt",
+        "processedAt",
+        "traceId",
+        "operationId"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/Id" },
+        "producer": { "enum": ["G1", "G2", "G3", "G4", "G5", "G6"] },
+        "source": { "$ref": "#/$defs/Ref" },
+        "roomId": {
+          "oneOf": [{ "$ref": "#/$defs/Id" }, { "type": "null" }]
+        },
+        "scopeKind": { "enum": ["ROOM", "SYSTEM"] },
+        "actorId": {
+          "oneOf": [{ "$ref": "#/$defs/Id" }, { "type": "null" }]
+        },
+        "actorKind": { "enum": ["USER", "SYSTEM"] },
+        "action": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "before": {
+          "type": "array",
+          "maxItems": 40,
+          "items": { "$ref": "#/$defs/AuditField" }
+        },
+        "after": {
+          "type": "array",
+          "maxItems": 40,
+          "items": { "$ref": "#/$defs/AuditField" }
+        },
+        "reason": {
+          "oneOf": [
+            { "type": "string", "minLength": 1, "maxLength": 1000 },
+            { "type": "null" }
+          ]
+        },
+        "result": { "enum": ["SUCCESS", "FAILURE"] },
+        "errorCode": {
+          "oneOf": [{ "type": "string" }, { "type": "null" }]
+        },
+        "effectiveAt": { "$ref": "#/$defs/Time" },
+        "processedAt": { "$ref": "#/$defs/Time" },
+        "traceId": { "$ref": "#/$defs/Id" },
+        "operationId": {
+          "oneOf": [{ "$ref": "#/$defs/Id" }, { "type": "null" }]
+        }
+      }
+    },
+    "Payload": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "applicationId",
+        "claimId",
+        "maintenanceSource",
+        "effectiveAt",
+        "reason",
+        "ledgerVersion",
+        "sourceVersion"
+      ],
+      "properties": {
+        "applicationId": {
+          "$ref": "#/$defs/Id",
+          "description": "被失效的整室申请 ID（G2 侧来源 ID）。"
+        },
+        "claimId": {
+          "$ref": "#/$defs/Id",
+          "description": "G4 台账中的占用记录 ID。"
+        },
+        "maintenanceSource": {
+          "$ref": "#/$defs/Ref",
+          "description": "造成失效的维护来源（ADMIN 停用或 REPAIR 维修）。"
+        },
+        "effectiveAt": {
+          "$ref": "#/$defs/Time",
+          "description": "失效实际生效时刻，即系统确认建立的时刻，不是未来计划起点。"
+        },
+        "reason": { "type": "string", "minLength": 1, "maxLength": 1000 },
+        "ledgerVersion": {
+          "$ref": "#/$defs/Version",
+          "description": "G4 账本版本。与 sourceVersion 不可混用。"
+        },
+        "sourceVersion": {
+          "$ref": "#/$defs/Version",
+          "description": "来源（G2 申请）当时的最大版本，仅供 G2 收敛比对。"
+        }
+      }
+    }
+  },
+  "examples": [
+    {
+      "eventId": "00000000-0000-4000-8000-000000000040",
+      "eventType": "ClaimInvalidated",
+      "schemaVersion": 1,
+      "producer": "G4",
+      "aggregate": { "type": "WHOLE", "id": "00000000-0000-4000-8000-000000000030" },
+      "aggregateVersion": "2",
+      "roomId": "00000000-0000-4000-8000-000000000010",
+      "occurredAt": "2026-10-24T08:00:00.000+08:00",
+      "actorId": null,
+      "actorKind": "SYSTEM",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "operationId": "00000000-0000-4000-8000-000000000030",
+      "audit": {
+        "id": "00000000-0000-4000-8000-000000000040",
+        "producer": "G4",
+        "source": { "type": "WHOLE", "id": "00000000-0000-4000-8000-000000000030" },
+        "roomId": "00000000-0000-4000-8000-000000000010",
+        "scopeKind": "ROOM",
+        "actorId": null,
+        "actorKind": "SYSTEM",
+        "action": "G4-P12",
+        "before": [{ "name": "claim.state", "value": "ACTIVE" }],
+        "after": [{ "name": "claim.state", "value": "INVALIDATED" }],
+        "reason": "空调检修",
+        "result": "SUCCESS",
+        "errorCode": null,
+        "effectiveAt": "2026-10-24T08:00:00.000+08:00",
+        "processedAt": "2026-10-24T08:00:00.000+08:00",
+        "traceId": "00000000-0000-4000-8000-000000000099",
+        "operationId": "00000000-0000-4000-8000-000000000030"
+      },
+      "payload": {
+        "applicationId": "00000000-0000-4000-8000-000000000030",
+        "claimId": "00000000-0000-4000-8000-000000000041",
+        "maintenanceSource": { "type": "ADMIN", "id": "00000000-0000-4000-8000-000000000042" },
+        "effectiveAt": "2026-10-24T08:00:00.000+08:00",
+        "reason": "空调检修",
+        "ledgerVersion": "3",
+        "sourceVersion": "2"
+      }
+    }
+  ]
+}
