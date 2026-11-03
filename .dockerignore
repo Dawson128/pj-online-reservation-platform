@@ -1,0 +1,9 @@
+.git
+**/node_modules
+**/target
+**/dist
+.env*
+!.env.example
+artifacts
+github-team-workflow
+需求与技术文档

@@ -1,0 +1,4 @@
+# Optional local Maven development only. Never use this override on a public host.
+services:
+  postgres:
+    ports: ["127.0.0.1:5432:5432"]

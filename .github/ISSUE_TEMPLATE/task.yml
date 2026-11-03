@@ -1,0 +1,28 @@
+name: 模块开发任务
+description: 明确范围、依赖与验收后开发
+body:
+  - type: dropdown
+    id: module
+    attributes:
+      label: 模块 owner
+      options: [G1, G2, G3, G4, G5, G6]
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 需求位置、目标及允许修改的目录
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 提供/调用接口、前置 PR、相关评审方
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 验收行为、反例、验证命令与回退
+    validations:
+      required: true
