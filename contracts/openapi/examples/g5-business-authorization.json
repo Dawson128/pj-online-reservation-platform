@@ -1,0 +1,379 @@
+[
+  {
+    "path": "/internal/authorization/check",
+    "method": "post",
+    "status": "200",
+    "request": {
+      "actorUserId": "00000000-0000-0000-0000-000000000101",
+      "accountVersion": "1",
+      "permissionVersion": "1",
+      "checks": [
+        {
+          "checkId": "00000000-0000-0000-0000-000000000001",
+          "action": "reservation:create",
+          "target": {
+            "kind": "ROOM",
+            "roomId": "00000000-0000-0000-0000-000000000201"
+          }
+        }
+      ]
+    },
+    "body": {
+      "data": {
+        "actorId": "00000000-0000-0000-0000-000000000101",
+        "accountVersion": "1",
+        "permissionVersion": "1",
+        "checkedAt": "2026-11-03T10:00:00.000+08:00",
+        "validUntil": "2026-11-03T10:00:05.000+08:00",
+        "items": [
+          {
+            "checkId": "00000000-0000-0000-0000-000000000001",
+            "action": "reservation:create",
+            "target": {
+              "kind": "ROOM",
+              "roomId": "00000000-0000-0000-0000-000000000201"
+            },
+            "allowed": true,
+            "roomVersion": "3",
+            "reason": "ALLOWED"
+          }
+        ]
+      },
+      "traceId": "00000000-0000-0000-0000-000000000999"
+    }
+  },
+  {
+    "path": "/internal/authorization/check",
+    "method": "post",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "服务身份无效或不允许调用此接口",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/internal/authorization/eligibility",
+    "method": "post",
+    "status": "200",
+    "request": {
+      "subjectId": "00000000-0000-0000-0000-000000000101",
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "action": "room:apply",
+      "source": {
+        "type": "WHOLE",
+        "id": "00000000-0000-0000-0000-000000000002"
+      },
+      "operationId": "00000000-0000-0000-0000-000000000003",
+      "purpose": "FINAL_APPROVAL"
+    },
+    "body": {
+      "data": {
+        "subjectId": "00000000-0000-0000-0000-000000000101",
+        "active": true,
+        "hasPermission": true,
+        "scopeMatched": true,
+        "canAccessRoom": true,
+        "eligible": true,
+        "accountVersion": "1",
+        "permissionVersion": "1",
+        "roomVersion": "3",
+        "checkedAt": "2026-11-03T10:00:00.000+08:00",
+        "validUntil": "2026-11-03T10:00:05.000+08:00"
+      },
+      "traceId": "00000000-0000-0000-0000-000000000999"
+    }
+  },
+  {
+    "path": "/internal/authorization/eligibility",
+    "method": "post",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "服务身份无效或不允许调用此接口",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/internal/maintenance/assignee-candidates",
+    "method": "post",
+    "status": "200",
+    "request": {
+      "actorUserId": "00000000-0000-0000-0000-000000000102",
+      "roomId": "00000000-0000-0000-0000-000000000201"
+    },
+    "body": {
+      "data": {
+        "items": [
+          {
+            "userId": "00000000-0000-0000-0000-000000000103",
+            "displayName": "合成维修账户",
+            "qualificationSummary": "当前具备维修资格"
+          }
+        ],
+        "page": 1,
+        "pageSize": 20,
+        "total": 1,
+        "asOf": "2026-11-03T10:00:00.000+08:00"
+      },
+      "traceId": "00000000-0000-0000-0000-000000000999"
+    }
+  },
+  {
+    "path": "/internal/maintenance/assignee-candidates",
+    "method": "post",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "服务身份无效或不允许调用此接口",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/internal/maintenance/assignee-eligibility",
+    "method": "post",
+    "status": "200",
+    "request": {
+      "actorUserId": "00000000-0000-0000-0000-000000000102",
+      "assigneeId": "00000000-0000-0000-0000-000000000103",
+      "roomId": "00000000-0000-0000-0000-000000000201"
+    },
+    "body": {
+      "data": {
+        "subjectId": "00000000-0000-0000-0000-000000000103",
+        "active": true,
+        "hasPermission": true,
+        "scopeMatched": true,
+        "canAccessRoom": false,
+        "eligible": true,
+        "accountVersion": "1",
+        "permissionVersion": "1",
+        "roomVersion": "3",
+        "checkedAt": "2026-11-03T10:00:00.000+08:00",
+        "validUntil": "2026-11-03T10:00:05.000+08:00"
+      },
+      "traceId": "00000000-0000-0000-0000-000000000999"
+    }
+  },
+  {
+    "path": "/internal/maintenance/assignee-eligibility",
+    "method": "post",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "服务身份无效或不允许调用此接口",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/internal/notification-recipients/query",
+    "method": "post",
+    "status": "200",
+    "request": {
+      "purpose": "NOTIFICATION_ROUTING",
+      "event": {
+        "eventId": "00000000-0000-0000-0000-000000000812",
+        "eventType": "WorkOrderReturned",
+        "schemaVersion": 1,
+        "producer": "G3",
+        "aggregate": {
+          "type": "REPAIR",
+          "id": "00000000-0000-0000-0000-000000000900"
+        },
+        "aggregateVersion": "1",
+        "roomId": "00000000-0000-0000-0000-000000000201",
+        "occurredAt": "2026-11-03T10:00:00.000+08:00",
+        "actorId": "00000000-0000-0000-0000-000000000101",
+        "actorKind": "USER",
+        "traceId": "00000000-0000-0000-0000-000000000999",
+        "operationId": "00000000-0000-0000-0000-000000000700",
+        "audit": {
+          "id": "00000000-0000-0000-0000-000000000812",
+          "producer": "G3",
+          "source": {
+            "type": "REPAIR",
+            "id": "00000000-0000-0000-0000-000000000900"
+          },
+          "roomId": "00000000-0000-0000-0000-000000000201",
+          "scopeKind": "ROOM",
+          "actorId": "00000000-0000-0000-0000-000000000101",
+          "actorKind": "USER",
+          "action": "sample",
+          "before": [],
+          "after": [],
+          "reason": "sample",
+          "result": "SUCCESS",
+          "errorCode": "sample",
+          "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+          "processedAt": "2026-11-03T10:00:00.000+08:00",
+          "traceId": "00000000-0000-0000-0000-000000000999",
+          "operationId": "00000000-0000-0000-0000-000000000700"
+        },
+        "payload": {
+          "workOrderId": "00000000-0000-0000-0000-000000000900",
+          "reporterId": "00000000-0000-0000-0000-000000000101",
+          "assigneeId": "00000000-0000-0000-0000-000000000103",
+          "reason": "sample"
+        }
+      }
+    },
+    "body": {
+      "data": {
+        "outcome": "RESOLVED",
+        "recipients": [
+          {
+            "userId": "00000000-0000-0000-0000-000000000101",
+            "email": "fixture@example.invalid",
+            "accountVersion": "1",
+            "permissionVersion": "1",
+            "branches": [
+              "REPORTER"
+            ]
+          }
+        ],
+        "excluded": [],
+        "scopeFacts": {
+          "roomId": "00000000-0000-0000-0000-000000000201",
+          "schoolWide": false,
+          "deptId": "00000000-0000-0000-0000-000000000301",
+          "enabled": true,
+          "roomVersion": "3",
+          "asOf": "2026-11-03T10:00:00.000+08:00"
+        },
+        "resolvedAt": "2026-11-03T10:00:00.000+08:00"
+      },
+      "traceId": "00000000-0000-0000-0000-000000000999"
+    }
+  },
+  {
+    "path": "/internal/notification-recipients/query",
+    "method": "post",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "服务身份无效或不允许调用此接口",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/internal/notification-recipients/validate",
+    "method": "post",
+    "status": "200",
+    "request": {
+      "event": {
+        "eventId": "00000000-0000-0000-0000-000000000812",
+        "eventType": "WorkOrderReturned",
+        "schemaVersion": 1,
+        "producer": "G3",
+        "aggregate": {
+          "type": "REPAIR",
+          "id": "00000000-0000-0000-0000-000000000900"
+        },
+        "aggregateVersion": "1",
+        "roomId": "00000000-0000-0000-0000-000000000201",
+        "occurredAt": "2026-11-03T10:00:00.000+08:00",
+        "actorId": "00000000-0000-0000-0000-000000000101",
+        "actorKind": "USER",
+        "traceId": "00000000-0000-0000-0000-000000000999",
+        "operationId": "00000000-0000-0000-0000-000000000700",
+        "audit": {
+          "id": "00000000-0000-0000-0000-000000000812",
+          "producer": "G3",
+          "source": {
+            "type": "REPAIR",
+            "id": "00000000-0000-0000-0000-000000000900"
+          },
+          "roomId": "00000000-0000-0000-0000-000000000201",
+          "scopeKind": "ROOM",
+          "actorId": "00000000-0000-0000-0000-000000000101",
+          "actorKind": "USER",
+          "action": "sample",
+          "before": [],
+          "after": [],
+          "reason": "sample",
+          "result": "SUCCESS",
+          "errorCode": "sample",
+          "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+          "processedAt": "2026-11-03T10:00:00.000+08:00",
+          "traceId": "00000000-0000-0000-0000-000000000999",
+          "operationId": "00000000-0000-0000-0000-000000000700"
+        },
+        "payload": {
+          "workOrderId": "00000000-0000-0000-0000-000000000900",
+          "reporterId": "00000000-0000-0000-0000-000000000101",
+          "assigneeId": "00000000-0000-0000-0000-000000000103",
+          "reason": "sample"
+        }
+      },
+      "recipientId": "00000000-0000-0000-0000-000000000101"
+    },
+    "body": {
+      "data": {
+        "eligible": true,
+        "recipient": {
+          "userId": "00000000-0000-0000-0000-000000000101",
+          "email": "fixture@example.invalid",
+          "accountVersion": "1",
+          "permissionVersion": "1",
+          "branches": [
+            "REPORTER"
+          ]
+        },
+        "checkedAt": "2026-11-03T10:00:00.000+08:00"
+      },
+      "traceId": "00000000-0000-0000-0000-000000000999"
+    }
+  },
+  {
+    "path": "/internal/notification-recipients/validate",
+    "method": "post",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "服务身份无效或不允许调用此接口",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  }
+]

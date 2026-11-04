@@ -1,0 +1,97 @@
+{
+  "ReservationReminderEarly": {
+    "producer": "G1",
+    "sourceType": "PERSONAL",
+    "sourceKey": "reservationId"
+  },
+  "ReservationReminderLate": {
+    "producer": "G1",
+    "sourceType": "PERSONAL",
+    "sourceKey": "reservationId"
+  },
+  "ReservationCancelled": {
+    "producer": "G1",
+    "sourceType": "PERSONAL",
+    "sourceKey": "reservationId"
+  },
+  "AppealDecided": {
+    "producer": "G1",
+    "sourceType": "PERSONAL",
+    "sourceKey": "reservationId"
+  },
+  "ViolationCorrected": {
+    "producer": "G1",
+    "sourceType": "PERSONAL",
+    "sourceKey": "reservationId"
+  },
+  "ApprovalTaskOpened": {
+    "producer": "G2",
+    "sourceType": "WHOLE",
+    "sourceKey": "applicationId"
+  },
+  "ApprovalStatusChanged": {
+    "producer": "G2",
+    "sourceType": "WHOLE",
+    "sourceKey": "applicationId"
+  },
+  "WorkOrderAssigned": {
+    "producer": "G3",
+    "sourceType": "REPAIR",
+    "sourceKey": "workOrderId"
+  },
+  "WorkOrderRepairStarted": {
+    "producer": "G3",
+    "sourceType": "REPAIR",
+    "sourceKey": "workOrderId"
+  },
+  "WorkOrderCompletionSubmitted": {
+    "producer": "G3",
+    "sourceType": "REPAIR",
+    "sourceKey": "workOrderId"
+  },
+  "WorkOrderEscalated": {
+    "producer": "G3",
+    "sourceType": "REPAIR",
+    "sourceKey": "workOrderId"
+  },
+  "WorkOrderAccepted": {
+    "producer": "G3",
+    "sourceType": "REPAIR",
+    "sourceKey": "workOrderId"
+  },
+  "WorkOrderReturned": {
+    "producer": "G3",
+    "sourceType": "REPAIR",
+    "sourceKey": "workOrderId"
+  },
+  "WorkOrderClosed": {
+    "producer": "G3",
+    "sourceType": "REPAIR",
+    "sourceKey": "workOrderId"
+  },
+  "ClaimInvalidated": {
+    "producer": "G4",
+    "sourceType": null,
+    "sourceKey": null
+  },
+  "MaintenanceImpactApplied": {
+    "producer": "G4",
+    "sourceType": null,
+    "sourceKey": null
+  },
+  "ConfigChanged": {
+    "producer": "G5",
+    "sourceType": "CONFIG",
+    "sourceKey": null
+  },
+  "RecoveryAttention": {
+    "producer": "G6",
+    "sourceType": null,
+    "sourceKey": null
+  },
+  "AuditRecorded": {
+    "producer": null,
+    "sourceType": null,
+    "sourceKey": null
+  }
+}

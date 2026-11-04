@@ -1,0 +1,288 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pj:g5:AuditRecorded:v1",
+  "title": "G5 authentication and management AuditRecorded producer subset",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "eventId",
+    "eventType",
+    "schemaVersion",
+    "producer",
+    "aggregate",
+    "aggregateVersion",
+    "roomId",
+    "occurredAt",
+    "actorId",
+    "actorKind",
+    "traceId",
+    "operationId",
+    "audit",
+    "payload"
+  ],
+  "properties": {
+    "eventId": {
+      "$ref": "#/$defs/id"
+    },
+    "eventType": {
+      "const": "AuditRecorded"
+    },
+    "schemaVersion": {
+      "const": 1
+    },
+    "producer": {
+      "const": "G5"
+    },
+    "aggregate": {
+      "$ref": "#/$defs/source"
+    },
+    "aggregateVersion": {
+      "type": "string",
+      "pattern": "^[1-9][0-9]{0,18}$"
+    },
+    "roomId": {
+      "type": "null"
+    },
+    "occurredAt": {
+      "$ref": "#/$defs/time"
+    },
+    "actorId": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/id"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "actorKind": {
+      "enum": [
+        "USER",
+        "SYSTEM"
+      ]
+    },
+    "traceId": {
+      "$ref": "#/$defs/id"
+    },
+    "operationId": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/id"
+        },
+        {
+          "type": "null"
+        }
+      ]
+    },
+    "payload": {
+      "type": "object",
+      "additionalProperties": false
+    },
+    "audit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "producer",
+        "source",
+        "roomId",
+        "scopeKind",
+        "actorId",
+        "actorKind",
+        "action",
+        "before",
+        "after",
+        "reason",
+        "result",
+        "errorCode",
+        "effectiveAt",
+        "processedAt",
+        "traceId",
+        "operationId"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/id"
+        },
+        "producer": {
+          "const": "G5"
+        },
+        "source": {
+          "$ref": "#/$defs/source"
+        },
+        "roomId": {
+          "type": "null"
+        },
+        "scopeKind": {
+          "const": "SYSTEM"
+        },
+        "actorId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "actorKind": {
+          "enum": [
+            "USER",
+            "SYSTEM"
+          ]
+        },
+        "action": {
+          "enum": [
+            "account:bootstrap",
+            "auth:login",
+            "auth:logout",
+            "auth:change-password",
+            "auth:request-denied",
+            "G5-P07",
+            "G5-P08",
+            "G5-P11",
+            "G5-P12",
+            "G5-P13",
+            "G5-P16",
+            "G5-P17",
+            "G5-L05"
+          ]
+        },
+        "before": {
+          "type": "array",
+          "maxItems": 40,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "value"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^(password|version|enabled|departmentId|displayNameChanged|emailChanged|code|key|name|grantsCount|grantsSHA256|roleIds[1-5])$"
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 500
+              }
+            }
+          }
+        },
+        "after": {
+          "type": "array",
+          "maxItems": 40,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "value"
+            ],
+            "properties": {
+              "name": {
+                "type": "string",
+                "pattern": "^(password|version|enabled|departmentId|displayNameChanged|emailChanged|code|key|name|grantsCount|grantsSHA256|roleIds[1-5])$"
+              },
+              "value": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "maxLength": 500
+              }
+            }
+          }
+        },
+        "reason": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "minLength": 1,
+          "maxLength": 1000
+        },
+        "result": {
+          "enum": [
+            "SUCCESS",
+            "FAILURE"
+          ]
+        },
+        "errorCode": {
+          "enum": [
+            null,
+            "VALIDATION_ERROR",
+            "UNAUTHENTICATED",
+            "FORBIDDEN",
+            "PASSWORD_CHANGE_REQUIRED",
+            "CURRENT_PASSWORD_INVALID",
+            "VERSION_CONFLICT",
+            "RATE_LIMITED",
+            "AUTH_UNAVAILABLE",
+            "NOT_FOUND",
+            "DUPLICATE_CODE",
+            "LAST_ADMIN_PROTECTED",
+            "IDEMPOTENCY_CONFLICT",
+            "SCOPE_FACTS_UNAVAILABLE",
+            "DEPENDENCY_UNAVAILABLE",
+            "STATE_CONFLICT"
+          ]
+        },
+        "effectiveAt": {
+          "$ref": "#/$defs/time"
+        },
+        "processedAt": {
+          "$ref": "#/$defs/time"
+        },
+        "traceId": {
+          "$ref": "#/$defs/id"
+        },
+        "operationId": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/id"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    }
+  },
+  "$defs": {
+    "id": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+    },
+    "time": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}\\+08:00$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "type",
+        "id"
+      ],
+      "properties": {
+        "type": {
+          "enum": [
+            "ACCOUNT",
+            "SYSTEM"
+          ]
+        },
+        "id": {
+          "$ref": "#/$defs/id"
+        }
+      }
+    }
+  }
+}

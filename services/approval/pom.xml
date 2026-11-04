@@ -2,14 +2,32 @@
   <modelVersion>4.0.0</modelVersion>
   <parent><groupId>cn.edu.campus</groupId><artifactId>campus-platform</artifactId><version>0.1.0-SNAPSHOT</version><relativePath>../../pom.xml</relativePath></parent>
   <artifactId>approval-service</artifactId>
+  <dependencies>
+    <dependency><groupId>com.networknt</groupId><artifactId>json-schema-validator</artifactId><version>1.5.6</version></dependency>
+  </dependencies>
   <build>
-    <resources><resource><directory>src/main/resources</directory></resource><resource><directory>../../db/m2</directory><targetPath>db/migration</targetPath><includes><include>**/*.sql</include></includes></resource></resources>
+    <resources><resource><directory>src/main/resources</directory></resource><resource><directory>../../db/m2</directory><targetPath>db/migration</targetPath><includes><include>**/*.sql</include></includes></resource>
+      <resource><directory>../../contracts/events/g5</directory><targetPath>g5/events</targetPath><includes><include>IncomingNotificationEvent.schema.json</include><include>notification-registry.json</include></includes></resource>
+    </resources>
     <plugins>
       <plugin><groupId>org.springframework.boot</groupId><artifactId>spring-boot-maven-plugin</artifactId></plugin>
       <plugin><groupId>org.codehaus.mojo</groupId><artifactId>build-helper-maven-plugin</artifactId><version>3.6.1</version><executions>
         <execution><id>module-sources</id><phase>generate-sources</phase><goals><goal>add-source</goal></goals><configuration><sources><source>modules/g2/src/main/java</source><source>modules/g5/src/main/java</source><source>integration/src/main/java</source></sources></configuration></execution>
         <execution><id>module-tests</id><phase>generate-test-sources</phase><goals><goal>add-test-source</goal></goals><configuration><sources><source>modules/g2/src/test/java</source><source>modules/g5/src/test/java</source><source>integration/src/test/java</source></sources></configuration></execution>
       </executions></plugin>
+      <plugin><groupId>org.codehaus.mojo</groupId><artifactId>exec-maven-plugin</artifactId><version>3.5.0</version><executions><execution>
+        <id>compose-g5-config-contract</id><phase>process-classes</phase><goals><goal>java</goal></goals><configuration>
+          <mainClass>cn.edu.campus.approval.g5.domain.ConfigurationRules</mainClass><arguments>
+            <argument>${project.basedir}/../../contracts/config/g5</argument>
+            <argument>${project.basedir}/../../需求与技术文档/技术文档v2.md</argument>
+            <argument>${project.build.outputDirectory}/g5/config-values.schema.json</argument>
+          </arguments>
+        </configuration></execution></executions></plugin>
     </plugins>
   </build>
+  <profiles><profile><id>postgres-it</id><build><plugins><plugin>
+    <groupId>org.apache.maven.plugins</groupId><artifactId>maven-failsafe-plugin</artifactId><version>3.5.4</version>
+    <configuration><systemPropertyVariables><appJar>${project.build.directory}/${project.build.finalName}.jar</appJar></systemPropertyVariables></configuration>
+    <executions><execution><goals><goal>integration-test</goal><goal>verify</goal></goals></execution></executions>
+  </plugin></plugins></build></profile></profiles>
 </project>
