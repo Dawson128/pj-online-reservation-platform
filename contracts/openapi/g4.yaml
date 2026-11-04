@@ -1,0 +1,2710 @@
+openapi: 3.1.0
+info:
+  title: G4 空间资源 — HTTP 契约
+  version: 0.2.0
+  description: |
+    reservation-service 中 G4（空间资源）模块的完整 HTTP 契约，含对外接口与跨服务内部接口。
+
+    G4 不产生业务，只裁决资源：回答"这个座位、这个时段能不能用，为什么不能用"。
+
+    依据：技术文档 v2.0 §5.4（G4-P01—P18）、§5.6（P16 端点展开）、§5.7（G4-I01—I08）、
+    §4.1—4.3（协议与类型）、§5.9（契约样例）、§7.1—7.4（事务与一致性）。
+
+    传输形状（全部端点统一）：
+    - 成功一律 `Ok<T> = {data: T, traceId: Id}`；异步受理为 `Ok<Pending<T>>`。
+    - 失败一律完整 `Error = {code, message, traceId, details}`，不返回裸字符串。
+    - 时间一律 RFC3339、+08:00、毫秒精度；区间为半开区间 [start, end)。
+    - `V`（版本）以十进制字符串传输，避免浮点精度丢失。
+
+    幂等与并发：
+    - 对外写请求（POST/PATCH/PUT）必须携带 Idempotency-Key 与 X-CSRF-Token。
+    - 只读语义的 POST（G4-P06 影响预览）不要求 Idempotency-Key，也不产生业务写效果。
+    - 内部接口读请求不要求 Idempotency-Key；内部写以 operationId 或 eventId 承担幂等。
+    - 所有更新必须携带 expectedVersion；不匹配返回 409 VERSION_CONFLICT。
+
+    状态：draft —— 阶段 A 冻结评审通过后改为 frozen。
+  contact:
+    name: G4 空间资源
+  license:
+    name: 课程项目内部使用
+    identifier: LicenseRef-Proprietary
+
+x-contract:
+  owner: G4
+  baseline: 技术文档 v2.0
+  reviewers_required: [G2, G3, G5, G6]
+  reviewers_note: |
+    公共资源类型需 G5、G6 与 G1/G2/G3 消费方分别评审。
+    内部接口需对应调用方确认：G4-I01/I03 由 G2/G3 确认，G4-I02/I08 由 G5 确认，
+    G4-I04/I05/I06/I07 由 G2/G3 确认。
+  status: draft
+  coverage_note: |
+    样例覆盖：21 个对外操作与 8 个内部操作均给出完整成功样例（Ok 包裹、全部必填字段）；
+    401/403/404/409/503 失败样例在 components/responses 中统一定义并被全端点复用；
+    各端点特有失败（DUPLICATE_CODE、IMPACT_CHANGED、STATE_CONFLICT、ownerGroup 越界、
+    unknown purpose 等）在对应响应上单独给出。T-CONTRACT 要求的三层样例（一成功 +
+    一鉴权失败 + 一状态/输入失败）按此覆盖。
+  open_questions:
+    - id: Q1
+      question: |
+        G4-P12 的起止时刻早于受理时刻时，公开接口返回 400 VALIDATION_ERROR 还是
+        422 TIME_RULE_VIOLATION，技术基线未明确。本版按 400 处理。
+        注意：内部裁决的 422 已在 G4-I04 / G4-L12 覆盖（DEADLINE_PASSED、QUALIFICATION_REVOKED），
+        两者不是同一层问题。
+      blocks: G4-P12 的错误码
+    - id: Q2
+      question: |
+        G4-L01 基线签名为 search(principal, query, kind): Page<RoomAvailability>|Page<SeatAvailability>，
+        单一方法返回联合类型。Java 无法按 kind 重载返回类型，实现需用密封结果类型或两个适配方法。
+        本版契约保留基线的单入口语义，实现方式的取舍需 G1 评审确认。
+      blocks: G4-L01 的 Java 签名
+    - id: Q3
+      question: |
+        EventEnvelope 与 Audit 由 G6 维护。本批事件 schema 内联了等价的信封结构并标注
+        x-pending-common: G6，其公共定义落地后改为引用。
+      blocks: contracts/events/g4/*.schema.json 的最终形状
+
+servers:
+  - url: /api/m1
+    description: 网关转发路径。本地直连 reservation-service 使用 http://localhost:8081 的同一路径。
+
+tags:
+  - name: 房间与座位
+    description: 主数据维护（G4-P01—P05、P09、P10）
+  - name: 变更与影响预览
+    description: 房内可用性写操作必须先预览再提交（G4-P06—P08、P11—P13）
+  - name: 台账与追溯
+    description: 占用来源追溯（G4-P14、P15）
+  - name: 运行与异常
+    description: 操作查询、重试与域指标（G4-P16a—d）
+  - name: 供其他业务调用
+    description: 报修选座与房间目录（G4-P17、P18）
+  - name: 内部接口
+    description: 跨服务调用（G4-I01—I08），服务凭据鉴权，非浏览器可达
+
+security:
+  - sessionCookie: []
+
+paths:
+
+  # ==================== 房间与座位主数据 ====================
+
+  /admin/rooms:
+    get:
+      tags: [房间与座位]
+      operationId: G4-P01
+      summary: 管理端读取房间列表
+      description: |
+        返回停用与被占用对象，不套用学生可用性筛选。
+        enabled 省略表示全部。只返回 room:manage 授权范围内的房间。
+      parameters:
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+        - name: keyword
+          in: query
+          schema: {type: string, minLength: 1, maxLength: 100}
+          description: 匹配编号 / 名称 / 地点。
+        - name: enabled
+          in: query
+          schema: {type: boolean}
+        - name: departmentId
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        - name: type
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/RoomType'
+      responses:
+        '200':
+          description: 分页房间列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkPageOfRoom'
+              examples:
+                success:
+                  value:
+                    data:
+                      items:
+                        - id: '00000000-0000-4000-8000-000000000010'
+                          version: '1'
+                          createdAt: '2026-10-24T08:00:00.000+08:00'
+                          updatedAt: '2026-10-24T08:00:00.000+08:00'
+                          code: R001
+                          name: 示例教室
+                          location: 教学楼1层
+                          area: 东区
+                          type: CLASSROOM
+                          capacity: 2
+                          schoolWide: true
+                          deptId: null
+                          enabled: true
+                          opening:
+                            weekly:
+                              - {weekday: 6, start: '08:00', end: '22:00'}
+                            exceptions: []
+                            version: '1'
+                          allowedActions: []
+                      page: 1
+                      pageSize: 20
+                      total: 1
+                      asOf: '2026-10-24T08:00:00.000+08:00'
+                    traceId: '00000000-0000-4000-8000-000000000099'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    post:
+      tags: [房间与座位]
+      operationId: G4-P02
+      summary: 新建房间
+      description: |
+        新建后 enabled=true、opening 为空、默认不开放（需另行配置开放规则）。
+        新建权限按拟建归属匹配 room:manage 的 SCHOOL 或 DEPARTMENT 范围；
+        尚不存在的 ID 不能利用任意 ROOM 授权新建。deptId 由 G5 验证院系有效性。
+
+        幂等：首次创建返回 201 且 Idempotency-Replayed=false；
+        24 小时内同键同正文重放返回 200 且 Idempotency-Replayed=true；
+        缓存过期后仍先查创建意图索引，同摘要返回原对象当前记录并标注 Replayed，异摘要 409。
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateRoomRequest'
+            examples:
+              success:
+                value:
+                  code: R002
+                  name: 研讨室
+                  location: 教学楼2层
+                  area: 东区
+                  type: CLASSROOM
+                  capacity: 4
+                  schoolWide: false
+                  deptId: '00000000-0000-4000-8000-000000000030'
+      responses:
+        '201':
+          description: 创建成功（首次）
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayedFalse'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkRoom'
+              examples:
+                success:
+                  value:
+                    data:
+                      id: '00000000-0000-4000-8000-000000000010'
+                      version: '1'
+                      createdAt: '2026-10-24T08:00:00.000+08:00'
+                      updatedAt: '2026-10-24T08:00:00.000+08:00'
+                      code: R002
+                      name: 研讨室
+                      location: 教学楼2层
+                      area: 东区
+                      type: CLASSROOM
+                      capacity: 4
+                      schoolWide: false
+                      deptId: '00000000-0000-4000-8000-000000000030'
+                      enabled: true
+                      opening: {weekly: [], exceptions: [], version: '1'}
+                      allowedActions: []
+                    traceId: '00000000-0000-4000-8000-000000000099'
+        '200':
+          description: 同键同正文长效重放，返回原对象当前记录
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayedTrue'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkRoom'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: 编号重复或幂等冲突
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                duplicateCode:
+                  value:
+                    code: DUPLICATE_CODE
+                    message: 房间编号已存在
+                    traceId: '00000000-0000-4000-8000-000000000099'
+                    details:
+                      fields: [{field: code, reason: 编号已被占用}]
+                      conflicts: []
+                      currentVersion: null
+                      operationId: null
+                      retryAfterSeconds: null
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/rooms/{id}:
+    get:
+      tags: [房间与座位]
+      operationId: G4-P03
+      summary: 读取单个房间详情
+      description: 返回含完整 opening 的房间。管理详情不含他人预约身份。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: 房间详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkRoom'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    patch:
+      tags: [变更与影响预览]
+      operationId: G4-P08
+      summary: 更新房间属性
+      description: |
+        必须先调用 G4-P06 取得 impactToken，body 的 values 必须与预览时的 change 正文一致，
+        否则 409 IMPACT_CHANGED。
+
+        权限：**归属变更必须同时覆盖旧范围与新范围**的 room:manage，否则 403；
+        仅改名称等非归属属性只校验当前范围。
+
+        事务内由协调器完成：G1 结算到期记录 → 系统取消受影响记录 →
+        G4 变更房间并失效受影响 WHOLE → 写历史与 outbox，一次提交。
+
+        停用即注销，历史保留；恢复不复活旧记录。任何属性变化统一走预览，不设隐含例外。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateRoomRequest'
+            examples:
+              disable:
+                value:
+                  expectedVersion: '1'
+                  values: {enabled: false}
+                  impactToken: '00000000-0000-4000-8000-000000000030'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkUpdateRoom'
+              examples:
+                success:
+                  value:
+                    data:
+                      room:
+                        id: '00000000-0000-4000-8000-000000000010'
+                        version: '2'
+                        createdAt: '2026-10-24T08:00:00.000+08:00'
+                        updatedAt: '2026-10-24T08:00:00.000+08:00'
+                        code: R001
+                        name: 示例教室
+                        location: 教学楼1层
+                        area: 东区
+                        type: CLASSROOM
+                        capacity: 2
+                        schoolWide: true
+                        deptId: null
+                        enabled: false
+                        opening:
+                          weekly: [{weekday: 6, start: '08:00', end: '22:00'}]
+                          exceptions: []
+                          version: '1'
+                        allowedActions: []
+                      impactOperationIds: []
+                      affectedCount: 0
+                    traceId: '00000000-0000-4000-8000-000000000099'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: 版本冲突或影响摘要变化
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                impactChanged:
+                  value:
+                    code: IMPACT_CHANGED
+                    message: 影响范围已变化，请重新预览
+                    traceId: '00000000-0000-4000-8000-000000000099'
+                    details:
+                      fields: []
+                      conflicts: []
+                      currentVersion: '2'
+                      operationId: null
+                      retryAfterSeconds: null
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/rooms/{id}/seats:
+    post:
+      tags: [房间与座位]
+      operationId: G4-P09
+      summary: 在房间下新增座位
+      description: |
+        新增座位 enabled=true。座位总数或有效座位数不受 capacity 限制，
+        capacity 只用于整室申请人数校验。
+        新座位继承房间当前的 WHOLE / REPAIR 限制，但不复制 claim 记录。
+        幂等语义同 G4-P02。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSeatRequest'
+            examples:
+              success:
+                value:
+                  code: A02
+                  socketType: NONE
+                  expectedVersion: '1'
+      responses:
+        '201':
+          description: 创建成功（首次）
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayedFalse'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkSeat'
+              examples:
+                success:
+                  value:
+                    data:
+                      id: '00000000-0000-4000-8000-000000000011'
+                      version: '1'
+                      createdAt: '2026-10-24T08:00:00.000+08:00'
+                      updatedAt: '2026-10-24T08:00:00.000+08:00'
+                      code: A02
+                      roomId: '00000000-0000-4000-8000-000000000010'
+                      roomVersion: '1'
+                      socketType: NONE
+                      enabled: true
+                      reasons: []
+                      allowedActions: []
+                    traceId: '00000000-0000-4000-8000-000000000099'
+        '200':
+          description: 同键同正文长效重放
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayedTrue'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkSeat'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/seats:
+    get:
+      tags: [房间与座位]
+      operationId: G4-P04
+      summary: 管理端读取座位列表
+      description: |
+        返回授权房间内的全部登记座位，包含停用与被占用座位（B.enabled=false 时仍包含 B）。
+        roomId 必填。start/end 必须成对出现。
+        未传区间时 reasons=[] 表示"未评估"，绝不表示可用。
+      parameters:
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+        - name: roomId
+          in: query
+          required: true
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        - name: enabled
+          in: query
+          schema: {type: boolean}
+        - name: seatCode
+          in: query
+          schema: {type: string, minLength: 1, maxLength: 40}
+        - name: socketType
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Socket'
+        - name: start
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        - name: end
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Time'
+      responses:
+        '200':
+          description: 分页座位列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkPageOfSeat'
+              examples:
+                success:
+                  value:
+                    data:
+                      items:
+                        - id: '00000000-0000-4000-8000-000000000011'
+                          version: '1'
+                          createdAt: '2026-10-24T08:00:00.000+08:00'
+                          updatedAt: '2026-10-24T08:00:00.000+08:00'
+                          code: A01
+                          roomId: '00000000-0000-4000-8000-000000000010'
+                          roomVersion: '1'
+                          socketType: FIXED
+                          enabled: true
+                          reasons: []
+                          allowedActions: []
+                      page: 1
+                      pageSize: 20
+                      total: 1
+                      asOf: '2026-10-24T08:00:00.000+08:00'
+                    traceId: '00000000-0000-4000-8000-000000000099'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/seats/{id}:
+    get:
+      tags: [房间与座位]
+      operationId: G4-P05
+      summary: 读取单个座位详情
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - name: start
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        - name: end
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Time'
+      responses:
+        '200':
+          description: 座位详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkSeat'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+    patch:
+      tags: [变更与影响预览]
+      operationId: G4-P10
+      summary: 更新座位属性
+      description: |
+        只能修改 socketType 与 enabled，不能改编号、不能迁室。
+        需携带 roomVersion 与 impactToken，按与房间相同的预览/取消协议执行。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSeatRequest'
+      responses:
+        '200':
+          description: 更新成功
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkSeat'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  # ==================== 变更与影响预览 ====================
+
+  /admin/rooms/{id}/impact-preview:
+    post:
+      tags: [变更与影响预览]
+      operationId: G4-P06
+      summary: 生成影响预览
+      description: |
+        按 POST 提交，但**按只读语义处理**：不产生任何业务写效果、不占用资源、
+        **不要求 Idempotency-Key**，也不产生 operationId。
+
+        token 五分钟有效，绑定：操作者 + room.version + change 规范正文摘要 +
+        受影响来源 ID/版本集合 + 访问资格快照。提交时锁内重算摘要，不一致 409 IMPACT_CHANGED。
+
+        影响包含 PERSONAL 与 WHOLE 已批准台账；超过 100 条通过 G4-P07 分页取，
+        响应本身不泄露他人身份。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ImpactPreviewRequest'
+            examples:
+              roomUpdate:
+                value:
+                  expectedVersion: '1'
+                  change: {kind: ROOM_UPDATE, values: {enabled: false}}
+              restrict:
+                value:
+                  expectedVersion: '1'
+                  change:
+                    kind: RESTRICT
+                    seatId: null
+                    start: '2026-10-24T09:00:00.000+08:00'
+                    end: null
+                    reason: 空调检修
+      responses:
+        '200':
+          description: 预览结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkImpactPreview'
+              examples:
+                success:
+                  value:
+                    data:
+                      token: '00000000-0000-4000-8000-000000000030'
+                      roomVersion: '1'
+                      affectedCount: 0
+                      digest: '3f1c9a2e7b4d5c60819273645546372819a0b1c2d3e4f5a6b7c8d9e0f1a2b3c4'
+                      expiresAt: '2026-10-24T08:05:00.000+08:00'
+                      impacts:
+                        items: []
+                        page: 1
+                        pageSize: 20
+                        total: 0
+                        asOf: '2026-10-24T08:00:00.000+08:00'
+                    traceId: '00000000-0000-4000-8000-000000000099'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/impact-previews/{id}/items:
+    get:
+      tags: [变更与影响预览]
+      operationId: G4-P07
+      summary: 分页读取影响条目
+      description: |
+        同一操作者的 room:manage 范围。预览过期或不可见均 404。
+        仅供影响确认；条目内的详情链接仍需原业务权限。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: 分页影响条目
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkPageOfImpact'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/rooms/{id}/opening-rules:
+    put:
+      tags: [变更与影响预览]
+      operationId: G4-P11
+      summary: 替换房间开放规则
+      description: |
+        先预览后提交，整体替换完整规则（不是增量修改）。
+        区间重叠或日期重复 400。
+        缩短开放时间导致受影响记录任一部分不合法时，整条取消，不截短。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/OpeningRulesRequest'
+      responses:
+        '200':
+          description: 更新后的房间
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkRoom'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/rooms/{id}/restrictions:
+    post:
+      tags: [变更与影响预览]
+      operationId: G4-P12
+      summary: 设置管理员停用
+      description: |
+        创建 ADMIN 来源的占用。seatId 为 null 表示整间停用，非 null 表示单座停用。
+
+        start 不早于当前受理时刻，不能倒填过去生效。
+        若预览时 start 已过去，锁内允许提升为 now 并重算影响，变化则 409 IMPACT_CHANGED。
+        end=null 表示无限期，直到显式释放；若有 end 必须大于 start。
+
+        生效时刻与取消时机（易错）：
+        - 停用起点在未来时，相交的未结束记录**仍立即整条系统取消**，
+          不等到未来时点才取消。
+        - 但维护影响的实际生效时刻使用**当前确认时刻**，不是未来的 start；
+          违约判定按该生效时刻与签到截止比较。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RestrictionRequest'
+            examples:
+              wholeRoom:
+                value:
+                  expectedVersion: '1'
+                  seatId: null
+                  start: '2026-10-24T09:00:00.000+08:00'
+                  end: null
+                  reason: 空调检修
+                  impactToken: '00000000-0000-4000-8000-000000000030'
+      responses:
+        '201':
+          description: 创建成功（首次）
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayedFalse'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkClaim'
+        '200':
+          description: 同键同正文长效重放
+          headers:
+            Idempotency-Replayed:
+              $ref: '#/components/headers/IdempotencyReplayedTrue'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkClaim'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/restrictions/{id}/release:
+    post:
+      tags: [变更与影响预览]
+      operationId: G4-P13
+      summary: 解除管理员停用
+      description: |
+        只释放 ADMIN 本来源的占用，G4 写入释放时间。
+        重复原键返回原结果；其他来源返回 403。
+        不删除维修或占用产生的其他来源限制。body 为 ReasonBody（含 expectedVersion）。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonBody'
+            examples:
+              success:
+                value:
+                  expectedVersion: '1'
+                  reason: 检修完成，恢复开放
+      responses:
+        '200':
+          description: 释放后的占用
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkClaim'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  # ==================== 台账与追溯 ====================
+
+  /admin/rooms/{id}/claims:
+    get:
+      tags: [台账与追溯]
+      operationId: G4-P14
+      summary: 按房间追溯占用来源
+      description: |
+        需要 resource:trace 或 audit:read 且含该房间范围。
+        按区间交集查询，包含已解除的历史来源。
+        sourceId 可进入原业务详情，但需该详情对应权限；无权时只显示来源编号。
+        sourceType 只接受四种资源来源，ACCOUNT/CONFIG/SYSTEM 400。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+        - name: start
+          in: query
+          required: true
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        - name: end
+          in: query
+          required: true
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        - name: seatId
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        - name: sourceType
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/ResourceSourceType'
+        - name: state
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/ClaimState'
+      responses:
+        '200':
+          description: 分页占用台账
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkPageOfClaim'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/claims/{id}/history:
+    get:
+      tags: [台账与追溯]
+      operationId: G4-P15
+      summary: 读取占用来源的完整历史
+      description: 不得截断来源历史。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+      responses:
+        '200':
+          description: 分页历史
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkPageOfClaimHistory'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  # ==================== 运行与异常（G4-P16 a/b/c/d） ====================
+
+  /operations/{id}:
+    get:
+      tags: [运行与异常]
+      operationId: G4-P16a
+      summary: 查询单个操作（详情）
+      description: |
+        C-R，query 为 Empty。发起本人可读自己的业务操作，或 operation:read 同范围。
+        statusUrl 是持久化的本域公开查询路径，不是进度动画地址。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+      responses:
+        '200':
+          description: 操作详情
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkOperation'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/operations:
+    get:
+      tags: [运行与异常]
+      operationId: G4-P16b
+      summary: 查询操作清单
+      description: |
+        C-R，需 operation:read 范围。
+        按状态、时间、来源、房间、组别筛选分页，不需要预先知道操作编号。
+        时间成对且 from<to、最长 31 天，未指定时间默认最近 7 天。
+        **ownerGroup 必须属于本服务（m1 = G1/G4），否则 400。**
+      parameters:
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/OperationState'
+        - name: needsAttention
+          in: query
+          schema: {type: boolean}
+        - name: createdFrom
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        - name: createdTo
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        - name: sourceType
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/SourceType'
+        - name: sourceId
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        - name: roomId
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        - name: ownerGroup
+          in: query
+          schema:
+            type: string
+            enum: [G1, G2, G3, G4, G5, G6]
+          description: 本服务只接受 G1 与 G4，其余 400。
+        - name: category
+          in: query
+          schema:
+            type: string
+            enum: [RESOURCE, NOTIFICATION_ROUTE, OTHER]
+      responses:
+        '200':
+          description: 分页操作列表
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkPageOfOperation'
+        '400':
+          description: 参数非法（含 ownerGroup 不属于本服务）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                ownerGroupOutOfService:
+                  value:
+                    code: VALIDATION_ERROR
+                    message: ownerGroup 不属于本服务
+                    traceId: '00000000-0000-4000-8000-000000000099'
+                    details:
+                      fields: [{field: ownerGroup, reason: 仅允许 G1、G4}]
+                      conflicts: []
+                      currentVersion: null
+                      operationId: null
+                      retryAfterSeconds: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/operations/{id}/retry:
+    post:
+      tags: [运行与异常]
+      operationId: G4-P16c
+      summary: 受控重试已受理的操作
+      description: |
+        C-W，需 operation:read + operation:recover 同范围，body 为 ReasonBody。
+        只将 BLOCKED / RETRY_WAIT 的原操作重新排队，保持原 sourceVersion、期望状态
+        与已受理决定；SUCCEEDED 或 RUNNING 返回 409 STATE_CONFLICT。
+        权限变化不把原操作的恢复变成新业务批准。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/IdempotencyKey'
+        - $ref: '#/components/parameters/CsrfToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReasonBody'
+      responses:
+        '200':
+          description: 重试后的操作
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkOperation'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /admin/metrics:
+    get:
+      tags: [运行与异常]
+      operationId: G4-P16d
+      summary: 读取资源域运行指标
+      description: |
+        C-R，query 为 {roomId?}。
+        operations 字段要求 operation:read；未获权限时该字段为 null，不返回 403。
+        notifications 字段仅 m3 提供，本服务恒为 null 且**必填**。
+        各数值与清单使用同一权限谓词、状态与时间范围，不能把未知当 0。
+      parameters:
+        - name: roomId
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+      responses:
+        '200':
+          description: 指标
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkMetrics'
+              examples:
+                success:
+                  value:
+                    data:
+                      asOf: '2026-10-24T08:00:00.000+08:00'
+                      operations:
+                        pendingCount: 0
+                        attentionCount: 0
+                        outboxCount: 0
+                        oldestOutboxAgeSeconds: null
+                        oldestPendingAgeSeconds: null
+                        oldestPendingRef: null
+                      notifications: null
+                    traceId: '00000000-0000-4000-8000-000000000099'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  # ==================== 供其他业务调用 ====================
+
+  /rooms/{id}/reportable-seats:
+    get:
+      tags: [供其他业务调用]
+      operationId: G4-P17
+      summary: 报修选座（供 G3 报修页）
+      description: |
+        只返回该房间的有效登记座位，包含被占用与维修中的座位。
+        reasons=[] 表示"未评估"，不代表可预约；allowedActions 恒为空数组。
+
+        鉴权：workorder:report + canAccessRoom。
+        房间无效 409 STATE_CONFLICT；越界房间 403；合法无座位返回 200 空页。
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+        - name: seatCode
+          in: query
+          schema: {type: string, minLength: 1, maxLength: 40}
+      responses:
+        '200':
+          description: 分页座位
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkPageOfSeat'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: 房间无效，不允许作为报修对象
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                roomDisabled:
+                  value:
+                    code: STATE_CONFLICT
+                    message: 房间已停用，不能作为报修对象
+                    traceId: '00000000-0000-4000-8000-000000000099'
+                    details:
+                      fields: []
+                      conflicts: []
+                      currentVersion: null
+                      operationId: null
+                      retryAfterSeconds: null
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /rooms/catalog:
+    get:
+      tags: [供其他业务调用]
+      operationId: G4-P18
+      summary: 房间目录（供 G2 申请页、G3 报修页）
+      description: |
+        不是可用性查询，只是"可选房间目录"。
+        不按开放时段、占用或维修过滤；提交时仍由各自业务接口重新核验。
+
+        鉴权按 purpose 分流：APPLICATION 用 room:apply，REPORT 用 workorder:report，
+        两者均叠加 canAccessRoom，**不额外要求 room:read**。
+        只返回有效登记房间（enabled 恒为 true），排序 code 升序 / id 升序。
+        未知 purpose 400。
+      parameters:
+        - $ref: '#/components/parameters/PageNumber'
+        - $ref: '#/components/parameters/PageSize'
+        - name: purpose
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [APPLICATION, REPORT]
+        - name: keyword
+          in: query
+          schema: {type: string, minLength: 1, maxLength: 100}
+          description: 匹配编号 / 名称 / 地点。
+        - name: area
+          in: query
+          schema: {type: string, minLength: 1, maxLength: 100}
+      responses:
+        '200':
+          description: 分页房间目录
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkPageOfRoomSummary'
+              examples:
+                success:
+                  value:
+                    data:
+                      items:
+                        - id: '00000000-0000-4000-8000-000000000010'
+                          version: '1'
+                          code: R001
+                          name: 示例教室
+                          location: 教学楼1层
+                          area: 东区
+                          type: CLASSROOM
+                          capacity: 2
+                          schoolWide: true
+                          deptId: null
+                          enabled: true
+                      page: 1
+                      pageSize: 20
+                      total: 1
+                      asOf: '2026-10-24T08:00:00.000+08:00'
+                    traceId: '00000000-0000-4000-8000-000000000099'
+        '400':
+          description: 参数非法（含未知 purpose）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                unknownPurpose:
+                  value:
+                    code: VALIDATION_ERROR
+                    message: purpose 取值非法
+                    traceId: '00000000-0000-4000-8000-000000000099'
+                    details:
+                      fields: [{field: purpose, reason: 仅允许 APPLICATION 或 REPORT}]
+                      conflicts: []
+                      currentVersion: null
+                      operationId: null
+                      retryAfterSeconds: null
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  # ==================== 内部接口 G4-I01—I08（C-I，服务凭据） ====================
+
+  /internal/rooms/{id}:
+    get:
+      tags: [内部接口]
+      operationId: G4-I01
+      summary: 房间元数据核验（G2 / G3 → G4）
+      description: |
+        服务凭据 + 当前 X-Actor-Session。start/end 成对，APPLICATION 必须有。
+        分别检查 room:apply 或 workorder:report + canAccessRoom，actor 绑定。
+        不按占用过滤有效元数据；停用房间返回 room.enabled=false 供调用方拒绝新申请/报修。
+        404 不存在、403 范围、503 鉴权不可用。
+      security:
+        - serviceCredential: []
+          actorSession: []
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - name: actorUserId
+          in: query
+          required: true
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        - name: purpose
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [APPLICATION, REPORT]
+        - name: start
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        - name: end
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Time'
+      responses:
+        '200':
+          description: 房间与范围事实
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkRoomCheck'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /internal/rooms/{id}/scope-facts:
+    get:
+      tags: [内部接口]
+      operationId: G4-I02
+      summary: 单室范围事实（G5 → G4）
+      description: |
+        仅 G5 调用，**无用户会话**。
+        NOTIFICATION_ROUTING 必须带 eventType/eventId；AUTHORIZATION 禁止这两个字段。
+        返回 ScopeFacts，含停用历史房间。未知房间 404，读取 503 SCOPE_FACTS_UNAVAILABLE，
+        用途/调用方错误 403。不调用 G5 内省，不检查用户业务范围，不返回身份资料。
+        这是唯一后台范围事实链，**不得递归调用 G4-I01**。
+      security:
+        - serviceCredential: []
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - name: purpose
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [NOTIFICATION_ROUTING, AUTHORIZATION]
+        - name: eventType
+          in: query
+          schema: {type: string, minLength: 1, maxLength: 80}
+        - name: eventId
+          in: query
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        - name: traceId
+          in: query
+          required: true
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+      responses:
+        '200':
+          description: 范围事实
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkScopeFacts'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /internal/seats/{id}/reporting-metadata:
+    get:
+      tags: [内部接口]
+      operationId: G4-I03
+      summary: 报修座位元数据（G3 → G4）
+      description: |
+        服务凭据 + X-Actor-Session。只验证 workorder:report 与房座登记，
+        不按占用/维修筛选。先核验 expectedRoomId 权限再比对 seat 归属；
+        400 SEAT_ROOM_MISMATCH 且不泄露外室信息。404 未知、503 不核验不建工单。
+      security:
+        - serviceCredential: []
+          actorSession: []
+      parameters:
+        - $ref: '#/components/parameters/PathId'
+        - name: actorUserId
+          in: query
+          required: true
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        - name: expectedRoomId
+          in: query
+          required: true
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        - name: purpose
+          in: query
+          required: true
+          schema:
+            type: string
+            enum: [REPORT]
+      responses:
+        '200':
+          description: 座位报修元数据
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkSeatReporting'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /internal/claims/{sourceType}/{sourceId}:
+    put:
+      tags: [内部接口]
+      operationId: G4-I04
+      summary: 建立或释放 WHOLE / REPAIR 占用（G2 / G3 → G4）
+      description: |
+        路径 sourceType 只接受 M2 或 M3，分别只允许 G2 或 G3 的服务身份。
+        后台无用户会话。内部写用 operationId 与 sourceVersion 承担幂等，
+        不要求 Idempotency-Key。
+
+        M2 必须带 application 快照（ACTIVE 与 RELEASED 都用原不可变快照），M3 必须为 null。
+        M3 的 ACTIVE start 由 G4 锁后当前时刻生成，end=null；M2 区间来自快照。
+        RELEASED 只能释放同 sourceId，来源不存在也写墓碑。
+
+        首次应用 200，重放返回原结果与原 HTTP 状态。
+        确定 RESOURCE_CONFLICT 为 409；DEADLINE_PASSED / QUALIFICATION_REVOKED 为 422；
+        两者都先在同房间/来源锁事务保存不可变拒绝结果与墓碑再返回，头 Operation-Recorded:true。
+        503 表示无法确定，由原 operation 查询或重试。
+      security:
+        - serviceCredential: []
+      parameters:
+        - name: sourceType
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [M2, M3]
+        - name: sourceId
+          in: path
+          required: true
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClaimCommand'
+      responses:
+        '200':
+          description: 台账命令结果
+          headers:
+            Operation-Recorded:
+              schema: {type: boolean}
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkClaimResult'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: 资源冲突、旧版本、永久终态或快照不符
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: 截止已过或资格撤销（同样先落墓碑再返回）
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /internal/claims/M2/{sourceId}/expire-if-not-approved:
+    post:
+      tags: [内部接口]
+      operationId: G4-I05
+      summary: 审批截止原子裁决（G2 → G4）
+      description: |
+        仅 G2 服务身份。同 room/source 锁内原子裁决，不需用户会话，不要求 Idempotency-Key。
+        判定优先级：永久撤销/失效/冲突终态 → TERMINAL；deadline 前存在有效批准事实 →
+        ALREADY_APPROVED；否则写 EXPIRED 墓碑 → EXPIRED。三种结果都持久化 operation。
+        409 DEADLINE_NOT_REACHED / STALE_SOURCE_VERSION / SNAPSHOT_MISMATCH；
+        503 不能证明终态。
+      security:
+        - serviceCredential: []
+      parameters:
+        - name: sourceId
+          in: path
+          required: true
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ExpireIfNotApprovedRequest'
+      responses:
+        '200':
+          description: 裁决结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkExpireOutcome'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /internal/operations/{operationId}:
+    get:
+      tags: [内部接口]
+      operationId: G4-I06
+      summary: 查询台账裁决结果（G2 / G3 → G4）
+      description: |
+        query 为 Empty。返回 APPLIED 或 DECLINED 的裁决，DECLINED 保留原拒绝与终态。
+        **消费者不得因 HTTP 200 就判为批准。**
+        未提交 404 只表示"当前没有已提交结果"，不能当作永不到达证据，不触发释放。
+        原调用服务不匹配 403。
+      security:
+        - serviceCredential: []
+      parameters:
+        - name: operationId
+          in: path
+          required: true
+          schema:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+      responses:
+        '200':
+          description: 裁决结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkClaimAdjudication'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /internal/claims/query:
+    post:
+      tags: [内部接口]
+      operationId: G4-I07
+      summary: 批量查询占用（G2 / G3 → G4）
+      description: |
+        只查自己的 M2 / M3 来源，最多 100 个 sourceId。
+        不存在结果返回 result=null，不是成功批准。查询不建墓碑。
+        按输入 ID 去重后逐项返回，无静默丢项。503 表示未知，需继续核验。
+      security:
+        - serviceCredential: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ClaimQueryRequest'
+      responses:
+        '200':
+          description: 批量查询结果
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkSourceClaims'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+  /internal/rooms/scope-facts/query:
+    post:
+      tags: [内部接口]
+      operationId: G4-I08
+      summary: 批量范围事实（G5 → G4）
+      description: |
+        仅 G5 服务身份、无用户会话。最多 100 个 roomId，去重后每个唯一 ID 一项，
+        未知房间 facts=null，已停用历史房间仍有事实。单次本地只读事务一致快照。
+        读取故障整批 503，调用方错误 403。不调用 G5 内省，避免循环。
+      security:
+        - serviceCredential: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScopeFactsQueryRequest'
+      responses:
+        '200':
+          description: 批量范围事实
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkScopeFactsBatch'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+
+components:
+
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: SESSION
+      description: |
+        服务端会话 Cookie（Secure / HttpOnly / SameSite=Lax），绝对 8 小时，无刷新延长。
+        同源写请求必须另带 X-CSRF-Token。
+    serviceCredential:
+      type: http
+      scheme: bearer
+      description: 服务间凭据，置于 Authorization 头。不得出现在 URL 中。
+    actorSession:
+      type: apiKey
+      in: header
+      name: X-Actor-Session
+      description: 代用户调用时的会话标识，仅存请求内存，不落库。
+
+  parameters:
+    PathId:
+      name: id
+      in: path
+      required: true
+      schema:
+        $ref: '../common/resource-types.yaml#/components/schemas/Id'
+    PageNumber:
+      name: page
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 1000000, default: 1}
+      description: 页码，从 1 开始。越界时 items 为空但保留 total。
+    PageSize:
+      name: pageSize
+      in: query
+      schema: {type: integer, minimum: 1, maximum: 100, default: 20}
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        $ref: '../common/resource-types.yaml#/components/schemas/Id'
+      description: |
+        对外写请求必需。作用域为 用户ID + method + 规范路径。
+        同键同正文返回已持久结果，异正文 409 IDEMPOTENCY_CONFLICT。
+        未知结果时只能用原键重试，不得自动换键。
+        只读语义的 POST（G4-P06）不要求本头。
+    CsrfToken:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema: {type: string, minLength: 16, maxLength: 256}
+
+  headers:
+    IdempotencyReplayedFalse:
+      description: 首次创建，未发生重放。
+      schema: {type: boolean, enum: [false]}
+    IdempotencyReplayedTrue:
+      description: 同键同正文长效重放，返回原对象当前记录。
+      schema: {type: boolean, enum: [true]}
+
+  responses:
+    BadRequest:
+      description: 参数或正文校验失败
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            validation:
+              value:
+                code: VALIDATION_ERROR
+                message: 参数校验失败
+                traceId: '00000000-0000-4000-8000-000000000099'
+                details:
+                  fields: [{field: start, reason: 必须为整点}]
+                  conflicts: []
+                  currentVersion: null
+                  operationId: null
+                  retryAfterSeconds: null
+    Unauthorized:
+      description: 未登录或会话已失效
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            unauthenticated:
+              value:
+                code: UNAUTHENTICATED
+                message: 请重新登录
+                traceId: '00000000-0000-4000-8000-000000000099'
+                details:
+                  fields: []
+                  conflicts: []
+                  currentVersion: null
+                  operationId: null
+                  retryAfterSeconds: null
+    Forbidden:
+      description: 无权限、超出范围或需要先改密码
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            forbidden:
+              value:
+                code: FORBIDDEN
+                message: 无权执行该操作
+                traceId: '00000000-0000-4000-8000-000000000099'
+                details:
+                  fields: []
+                  conflicts: []
+                  currentVersion: null
+                  operationId: null
+                  retryAfterSeconds: null
+    NotFound:
+      description: 对象不存在或对当前用户不可见
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            notFound:
+              value:
+                code: NOT_FOUND
+                message: 对象不存在
+                traceId: '00000000-0000-4000-8000-000000000099'
+                details:
+                  fields: []
+                  conflicts: []
+                  currentVersion: null
+                  operationId: null
+                  retryAfterSeconds: null
+    Conflict:
+      description: 版本、幂等、状态、资源或影响摘要冲突
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            versionConflict:
+              value:
+                code: VERSION_CONFLICT
+                message: 记录已变化，请刷新
+                traceId: '00000000-0000-4000-8000-000000000099'
+                details:
+                  fields: []
+                  conflicts: []
+                  currentVersion: '2'
+                  operationId: null
+                  retryAfterSeconds: null
+    ServiceUnavailable:
+      description: 依赖不可用或事实无法核验，结果未知
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+          examples:
+            dependencyUnavailable:
+              value:
+                code: DEPENDENCY_UNAVAILABLE
+                message: 依赖服务暂不可用，请重试
+                traceId: '00000000-0000-4000-8000-000000000099'
+                details:
+                  fields: []
+                  conflicts: []
+                  currentVersion: null
+                  operationId: null
+                  retryAfterSeconds: 5
+
+  schemas:
+
+    # ---------- 信封（x-pending-common: G6） ----------
+    #
+    # 成功信封统一为 Ok<T> = {data, traceId}。为便于阅读与校验，下面按 data 类型
+    # 分别定义 OkXxx 具体模式（OpenAPI 3.1 无泛型）；G6 的公共定义落地后统一改为引用。
+
+    ErrorCode:
+      type: string
+      description: |
+        G4 会返回的错误码子集。全集由 G6 的公共错误约定维护，
+        禁止出现未登记的 code。
+      enum:
+        - VALIDATION_ERROR
+        - SEAT_ROOM_MISMATCH
+        - UNAUTHENTICATED
+        - FORBIDDEN
+        - PASSWORD_CHANGE_REQUIRED
+        - NOT_FOUND
+        - VERSION_CONFLICT
+        - IDEMPOTENCY_CONFLICT
+        - STATE_CONFLICT
+        - RESOURCE_CONFLICT
+        - USER_TIME_CONFLICT
+        - IMPACT_CHANGED
+        - OPERATION_IN_PROGRESS
+        - STALE_SOURCE_VERSION
+        - SOURCE_TERMINAL
+        - DEADLINE_NOT_REACHED
+        - SNAPSHOT_MISMATCH
+        - DUPLICATE_CODE
+        - TIME_RULE_VIOLATION
+        - QUALIFICATION_REVOKED
+        - DEADLINE_PASSED
+        - RATE_LIMITED
+        - AUTH_UNAVAILABLE
+        - SCOPE_FACTS_UNAVAILABLE
+        - DEPENDENCY_UNAVAILABLE
+
+    FieldError:
+      type: object
+      additionalProperties: false
+      required: [field, reason]
+      properties:
+        field: {type: string, minLength: 1, maxLength: 100}
+        reason: {type: string, minLength: 1, maxLength: 200}
+
+    ConflictItem:
+      type: object
+      additionalProperties: false
+      required: [category, roomId, seatId, start, end]
+      properties:
+        category:
+          $ref: '../common/resource-types.yaml#/components/schemas/UnavailableReason'
+        roomId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        seatId:
+          oneOf:
+            - $ref: '../common/resource-types.yaml#/components/schemas/Id'
+            - type: 'null'
+        start:
+          $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        end:
+          oneOf:
+            - $ref: '../common/resource-types.yaml#/components/schemas/Time'
+            - type: 'null'
+
+    ErrorDetails:
+      type: object
+      additionalProperties: false
+      required: [fields, conflicts, currentVersion, operationId, retryAfterSeconds]
+      properties:
+        fields:
+          type: array
+          maxItems: 30
+          items:
+            $ref: '#/components/schemas/FieldError'
+        conflicts:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/ConflictItem'
+        currentVersion:
+          oneOf:
+            - $ref: '../common/resource-types.yaml#/components/schemas/Version'
+            - type: 'null'
+        operationId:
+          oneOf:
+            - $ref: '../common/resource-types.yaml#/components/schemas/Id'
+            - type: 'null'
+        retryAfterSeconds:
+          oneOf:
+            - type: integer
+              minimum: 0
+              maximum: 3600
+            - type: 'null'
+
+    Error:
+      type: object
+      description: "完整错误体。x-pending-common: G6"
+      x-pending-common: G6
+      additionalProperties: false
+      required: [code, message, traceId, details]
+      properties:
+        code:
+          $ref: '#/components/schemas/ErrorCode'
+        message: {type: string, minLength: 1, maxLength: 500}
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        details:
+          $ref: '#/components/schemas/ErrorDetails'
+
+    # ---------- 请求体 ----------
+
+    CreateRoomRequest:
+      type: object
+      additionalProperties: false
+      required: [code, name, location, area, type, capacity, schoolWide, deptId]
+      properties:
+        code: {type: string, minLength: 1, maxLength: 40}
+        name: {type: string, minLength: 1, maxLength: 100}
+        location: {type: string, minLength: 1, maxLength: 200}
+        area: {type: string, minLength: 1, maxLength: 100}
+        type:
+          $ref: '../common/resource-types.yaml#/components/schemas/RoomType'
+        capacity: {type: integer, minimum: 1, maximum: 10000}
+        schoolWide: {type: boolean}
+        deptId:
+          oneOf:
+            - $ref: '../common/resource-types.yaml#/components/schemas/Id'
+            - type: 'null'
+
+    UpdateRoomRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, values, impactToken]
+      properties:
+        expectedVersion:
+          $ref: '../common/resource-types.yaml#/components/schemas/Version'
+        values:
+          $ref: '../common/resource-types.yaml#/components/schemas/RoomPatch'
+        impactToken:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+
+    UpdateRoomResponse:
+      type: object
+      additionalProperties: false
+      required: [room, impactOperationIds, affectedCount]
+      properties:
+        room:
+          $ref: '../common/resource-types.yaml#/components/schemas/Room'
+        impactOperationIds:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+          description: 影响超过 100 条时不枚举全部，改用 G4-P16b 按 sourceType/sourceId 关联查询。
+        affectedCount: {type: integer, minimum: 0, maximum: 2147483647}
+
+    CreateSeatRequest:
+      type: object
+      additionalProperties: false
+      required: [code, socketType, expectedVersion]
+      properties:
+        code: {type: string, minLength: 1, maxLength: 40}
+        socketType:
+          $ref: '../common/resource-types.yaml#/components/schemas/Socket'
+        expectedVersion:
+          $ref: '../common/resource-types.yaml#/components/schemas/Version'
+
+    UpdateSeatRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, roomVersion, values, impactToken]
+      properties:
+        expectedVersion:
+          $ref: '../common/resource-types.yaml#/components/schemas/Version'
+        roomVersion:
+          $ref: '../common/resource-types.yaml#/components/schemas/Version'
+        values:
+          $ref: '../common/resource-types.yaml#/components/schemas/SeatPatch'
+        impactToken:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+
+    ImpactPreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, change]
+      properties:
+        expectedVersion:
+          $ref: '../common/resource-types.yaml#/components/schemas/Version'
+        change:
+          $ref: '../common/resource-types.yaml#/components/schemas/ResourceChange'
+
+    OpeningRulesRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, opening, impactToken]
+      properties:
+        expectedVersion:
+          $ref: '../common/resource-types.yaml#/components/schemas/Version'
+        opening:
+          $ref: '../common/resource-types.yaml#/components/schemas/OpeningInput'
+        impactToken:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+
+    RestrictionRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedVersion, seatId, start, end, reason, impactToken]
+      properties:
+        expectedVersion:
+          $ref: '../common/resource-types.yaml#/components/schemas/Version'
+        seatId:
+          oneOf:
+            - $ref: '../common/resource-types.yaml#/components/schemas/Id'
+            - type: 'null'
+        start:
+          $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        end:
+          oneOf:
+            - $ref: '../common/resource-types.yaml#/components/schemas/Time'
+            - type: 'null'
+        reason: {type: string, minLength: 1, maxLength: 1000}
+        impactToken:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+
+    ReasonBody:
+      type: object
+      description: |
+        带乐观并发的操作原因体。G4-P13 释放停用、G4-P16c 操作重试复用。
+        expectedVersion 必填，缺失即丢失并发控制。
+      additionalProperties: false
+      required: [expectedVersion, reason]
+      properties:
+        expectedVersion:
+          $ref: '../common/resource-types.yaml#/components/schemas/Version'
+        reason: {type: string, minLength: 1, maxLength: 1000}
+
+    # ---------- 内部接口请求/响应 ----------
+
+    ApplicationSnapshot:
+      type: object
+      description: 整室申请的不可变快照。ACTIVE 与 RELEASED 都使用原快照。
+      additionalProperties: false
+      required: [applicantId, start, end, deadline, attendeeCount, purpose, configVersion]
+      properties:
+        applicantId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        start:
+          $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        end:
+          $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        deadline:
+          $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        attendeeCount: {type: integer, minimum: 1, maximum: 10000}
+        purpose: {type: string, minLength: 1, maxLength: 500}
+        configVersion:
+          $ref: '../common/resource-types.yaml#/components/schemas/Version'
+
+    ClaimCommand:
+      type: object
+      description: |
+        台账命令。M2 必须带 application，M3 必须为 null。
+        M3 的 ACTIVE start 由 G4 锁后当前时刻生成，end=null。
+      additionalProperties: false
+      required:
+        - operationId
+        - sourceVersion
+        - action
+        - desiredState
+        - roomId
+        - actorUserId
+        - reason
+        - traceId
+        - application
+      properties:
+        operationId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        sourceVersion:
+          $ref: '../common/resource-types.yaml#/components/schemas/Version'
+        action:
+          type: string
+          enum: [SET_STATE]
+        desiredState:
+          type: string
+          enum: [ACTIVE, RELEASED]
+        roomId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        actorUserId:
+          oneOf:
+            - $ref: '../common/resource-types.yaml#/components/schemas/Id'
+            - type: 'null'
+        reason: {type: string, minLength: 1, maxLength: 1000}
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        application:
+          oneOf:
+            - $ref: '#/components/schemas/ApplicationSnapshot'
+            - type: 'null'
+
+    ExpireIfNotApprovedRequest:
+      type: object
+      additionalProperties: false
+      required: [operationId, sourceVersion, action, roomId, application, actorUserId, reason, traceId]
+      properties:
+        operationId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        sourceVersion:
+          $ref: '../common/resource-types.yaml#/components/schemas/Version'
+        action:
+          type: string
+          enum: [EXPIRE_IF_NOT_APPROVED]
+        roomId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        application:
+          $ref: '#/components/schemas/ApplicationSnapshot'
+        actorUserId:
+          oneOf:
+            - $ref: '../common/resource-types.yaml#/components/schemas/Id'
+            - type: 'null'
+        reason: {type: string, minLength: 1, maxLength: 1000}
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+
+    ClaimQueryRequest:
+      type: object
+      additionalProperties: false
+      required: [sourceType, sourceIds]
+      properties:
+        sourceType:
+          type: string
+          enum: [M2, M3]
+        sourceIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+
+    ScopeFactsQueryRequest:
+      type: object
+      additionalProperties: false
+      required: [purpose, roomIds, traceId]
+      properties:
+        purpose:
+          type: string
+          enum: [AUTHORIZATION]
+        roomIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+
+    RoomCheck:
+      type: object
+      additionalProperties: false
+      required: [room, scopeFacts, intervalOpen, checkedAt]
+      properties:
+        room:
+          $ref: '../common/resource-types.yaml#/components/schemas/Room'
+        scopeFacts:
+          $ref: '../common/resource-types.yaml#/components/schemas/ScopeFacts'
+        intervalOpen:
+          oneOf:
+            - {type: boolean}
+            - type: 'null'
+          description: REPORT 用途恒为 null。
+        checkedAt:
+          $ref: '../common/resource-types.yaml#/components/schemas/Time'
+
+    SeatReportingMetadata:
+      type: object
+      additionalProperties: false
+      required: [seatId, roomId, enabled, seatVersion, roomVersion, checkedAt]
+      properties:
+        seatId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        roomId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        enabled: {type: boolean}
+        seatVersion:
+          $ref: '../common/resource-types.yaml#/components/schemas/Version'
+        roomVersion:
+          $ref: '../common/resource-types.yaml#/components/schemas/Version'
+        checkedAt:
+          $ref: '../common/resource-types.yaml#/components/schemas/Time'
+
+    ExpireOutcome:
+      type: object
+      additionalProperties: false
+      required: [outcome, result]
+      properties:
+        outcome:
+          type: string
+          enum: [ALREADY_APPROVED, TERMINAL, EXPIRED]
+        result:
+          $ref: '../common/resource-types.yaml#/components/schemas/ClaimResult'
+
+    SourceClaims:
+      type: object
+      additionalProperties: false
+      required: [items, asOf]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '../common/resource-types.yaml#/components/schemas/SourceClaim'
+        asOf:
+          $ref: '../common/resource-types.yaml#/components/schemas/Time'
+
+    ScopeFactItem:
+      type: object
+      additionalProperties: false
+      required: [roomId, facts]
+      properties:
+        roomId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        facts:
+          oneOf:
+            - $ref: '../common/resource-types.yaml#/components/schemas/ScopeFacts'
+            - type: 'null'
+
+    ScopeFactsBatch:
+      type: object
+      additionalProperties: false
+      required: [items, asOf]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/ScopeFactItem'
+        asOf:
+          $ref: '../common/resource-types.yaml#/components/schemas/Time'
+
+    # ---------- 运行与异常（x-pending-common: G6） ----------
+
+    OperationState:
+      type: string
+      enum: [PENDING, RUNNING, RETRY_WAIT, SUCCEEDED, BLOCKED]
+      x-pending-common: G6
+
+    OperationResult:
+      type: object
+      x-pending-common: G6
+      additionalProperties: false
+      required: [outcome, record, resultVersion, effectiveAt]
+      properties:
+        outcome:
+          type: string
+          enum: [APPLIED, ALREADY_APPLIED, TERMINAL, EXPIRED, REJECTED]
+        record:
+          $ref: '../common/resource-types.yaml#/components/schemas/Ref'
+        resultVersion:
+          $ref: '../common/resource-types.yaml#/components/schemas/Version'
+        effectiveAt:
+          oneOf:
+            - $ref: '../common/resource-types.yaml#/components/schemas/Time'
+            - type: 'null'
+
+    Operation:
+      type: object
+      x-pending-common: G6
+      additionalProperties: false
+      required:
+        - id
+        - version
+        - createdAt
+        - updatedAt
+        - ownerGroup
+        - source
+        - roomId
+        - scopeKind
+        - category
+        - eventId
+        - actorId
+        - operationId
+        - status
+        - phase
+        - acceptedAt
+        - attemptCount
+        - nextRetryAt
+        - error
+        - needsAttention
+        - result
+        - statusUrl
+        - allowedActions
+      properties:
+        id:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        version:
+          $ref: '../common/resource-types.yaml#/components/schemas/Version'
+        createdAt:
+          $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        updatedAt:
+          $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        ownerGroup:
+          type: string
+          enum: [G1, G2, G3, G4, G5, G6]
+        source:
+          $ref: '../common/resource-types.yaml#/components/schemas/Ref'
+        roomId:
+          oneOf:
+            - $ref: '../common/resource-types.yaml#/components/schemas/Id'
+            - type: 'null'
+        scopeKind:
+          type: string
+          enum: [ROOM, SYSTEM]
+        category:
+          type: string
+          enum: [RESOURCE, NOTIFICATION_ROUTE, OTHER]
+        eventId:
+          oneOf:
+            - $ref: '../common/resource-types.yaml#/components/schemas/Id'
+            - type: 'null'
+          description: 仅 NOTIFICATION_ROUTE 类别非 null。
+        actorId:
+          oneOf:
+            - $ref: '../common/resource-types.yaml#/components/schemas/Id'
+            - type: 'null'
+        operationId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        status:
+          $ref: '#/components/schemas/OperationState'
+        phase:
+          type: string
+          enum: [NONE, ACQUIRING, VERIFYING, RELEASING, STARTING, ACCEPTING]
+        acceptedAt:
+          $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        attemptCount: {type: integer, minimum: 0, maximum: 2147483647}
+        nextRetryAt:
+          oneOf:
+            - $ref: '../common/resource-types.yaml#/components/schemas/Time'
+            - type: 'null'
+        error:
+          oneOf:
+            - $ref: '#/components/schemas/Error'
+            - type: 'null'
+        needsAttention: {type: boolean}
+        result:
+          oneOf:
+            - $ref: '#/components/schemas/OperationResult'
+            - type: 'null'
+        statusUrl: {type: string, minLength: 1, maxLength: 300}
+        allowedActions:
+          type: array
+          maxItems: 64
+          items: {type: string}
+
+    PendingRef:
+      type: object
+      x-pending-common: G6
+      additionalProperties: false
+      required: [kind, id, since, detailUrl]
+      properties:
+        kind:
+          type: string
+          enum: [OPERATION, OUTBOX, NOTIFICATION_ROUTE, NOTIFICATION]
+        id:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+        since:
+          $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        detailUrl: {type: string, minLength: 1, maxLength: 300}
+
+    OperationsMetrics:
+      type: object
+      x-pending-common: G6
+      additionalProperties: false
+      required:
+        - pendingCount
+        - attentionCount
+        - outboxCount
+        - oldestOutboxAgeSeconds
+        - oldestPendingAgeSeconds
+        - oldestPendingRef
+      properties:
+        pendingCount: {type: integer, minimum: 0, maximum: 2147483647}
+        attentionCount: {type: integer, minimum: 0, maximum: 2147483647}
+        outboxCount: {type: integer, minimum: 0, maximum: 2147483647}
+        oldestOutboxAgeSeconds:
+          oneOf:
+            - {type: integer, minimum: 0, maximum: 2147483647}
+            - type: 'null'
+        oldestPendingAgeSeconds:
+          oneOf:
+            - {type: integer, minimum: 0, maximum: 2147483647}
+            - type: 'null'
+        oldestPendingRef:
+          oneOf:
+            - $ref: '#/components/schemas/PendingRef'
+            - type: 'null'
+
+    NotificationsMetrics:
+      type: object
+      x-pending-common: G6
+      additionalProperties: false
+      required:
+        - failedCount
+        - unknownCount
+        - routingBlockedCount
+        - oldestPendingAgeSeconds
+        - oldestPendingRef
+      properties:
+        failedCount: {type: integer, minimum: 0, maximum: 2147483647}
+        unknownCount: {type: integer, minimum: 0, maximum: 2147483647}
+        routingBlockedCount: {type: integer, minimum: 0, maximum: 2147483647}
+        oldestPendingAgeSeconds:
+          oneOf:
+            - {type: integer, minimum: 0, maximum: 2147483647}
+            - type: 'null'
+        oldestPendingRef:
+          oneOf:
+            - $ref: '#/components/schemas/PendingRef'
+            - type: 'null'
+
+    Metrics:
+      type: object
+      description: |
+        域指标。两个字段组均**必填**：未获对应权限时值为 null，不返回 403。
+        m1（G4）的 notifications 恒为 null，因为通知域只属于 m3。
+      additionalProperties: false
+      required: [asOf, operations, notifications]
+      properties:
+        asOf:
+          $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        operations:
+          oneOf:
+            - $ref: '#/components/schemas/OperationsMetrics'
+            - type: 'null'
+        notifications:
+          oneOf:
+            - $ref: '#/components/schemas/NotificationsMetrics'
+            - type: 'null'
+
+    # ---------- Ok 信封包装 ----------
+
+    OkRoom:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          $ref: '../common/resource-types.yaml#/components/schemas/Room'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+    OkSeat:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          $ref: '../common/resource-types.yaml#/components/schemas/Seat'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+    OkClaim:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          $ref: '../common/resource-types.yaml#/components/schemas/Claim'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+    OkImpactPreview:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          $ref: '../common/resource-types.yaml#/components/schemas/ImpactPreview'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+    OkUpdateRoom:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          $ref: '#/components/schemas/UpdateRoomResponse'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+    OkOperation:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          $ref: '#/components/schemas/Operation'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+    OkMetrics:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          $ref: '#/components/schemas/Metrics'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+    OkRoomCheck:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          $ref: '#/components/schemas/RoomCheck'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+    OkScopeFacts:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          $ref: '../common/resource-types.yaml#/components/schemas/ScopeFacts'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+    OkSeatReporting:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          $ref: '#/components/schemas/SeatReportingMetadata'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+    OkClaimResult:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          $ref: '../common/resource-types.yaml#/components/schemas/ClaimResult'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+    OkClaimAdjudication:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          $ref: '../common/resource-types.yaml#/components/schemas/ClaimAdjudication'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+    OkExpireOutcome:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          $ref: '#/components/schemas/ExpireOutcome'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+    OkSourceClaims:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          $ref: '#/components/schemas/SourceClaims'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+    OkScopeFactsBatch:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          $ref: '#/components/schemas/ScopeFactsBatch'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+
+    OkPageOfRoom:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [items, page, pageSize, total, asOf]
+          properties:
+            items:
+              type: array
+              maxItems: 100
+              items:
+                $ref: '../common/resource-types.yaml#/components/schemas/Room'
+            page:
+              $ref: '../common/resource-types.yaml#/components/schemas/PageNumber'
+            pageSize:
+              $ref: '../common/resource-types.yaml#/components/schemas/PageSize'
+            total: {type: integer, minimum: 0, maximum: 2147483647}
+            asOf:
+              $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+
+    OkPageOfSeat:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [items, page, pageSize, total, asOf]
+          properties:
+            items:
+              type: array
+              maxItems: 100
+              items:
+                $ref: '../common/resource-types.yaml#/components/schemas/Seat'
+            page:
+              $ref: '../common/resource-types.yaml#/components/schemas/PageNumber'
+            pageSize:
+              $ref: '../common/resource-types.yaml#/components/schemas/PageSize'
+            total: {type: integer, minimum: 0, maximum: 2147483647}
+            asOf:
+              $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+
+    OkPageOfRoomSummary:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [items, page, pageSize, total, asOf]
+          properties:
+            items:
+              type: array
+              maxItems: 100
+              items:
+                $ref: '../common/resource-types.yaml#/components/schemas/RoomSummary'
+            page:
+              $ref: '../common/resource-types.yaml#/components/schemas/PageNumber'
+            pageSize:
+              $ref: '../common/resource-types.yaml#/components/schemas/PageSize'
+            total: {type: integer, minimum: 0, maximum: 2147483647}
+            asOf:
+              $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+
+    OkPageOfClaim:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [items, page, pageSize, total, asOf]
+          properties:
+            items:
+              type: array
+              maxItems: 100
+              items:
+                $ref: '../common/resource-types.yaml#/components/schemas/Claim'
+            page:
+              $ref: '../common/resource-types.yaml#/components/schemas/PageNumber'
+            pageSize:
+              $ref: '../common/resource-types.yaml#/components/schemas/PageSize'
+            total: {type: integer, minimum: 0, maximum: 2147483647}
+            asOf:
+              $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+
+    OkPageOfClaimHistory:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [items, page, pageSize, total, asOf]
+          properties:
+            items:
+              type: array
+              maxItems: 100
+              items:
+                $ref: '../common/resource-types.yaml#/components/schemas/ClaimHistory'
+            page:
+              $ref: '../common/resource-types.yaml#/components/schemas/PageNumber'
+            pageSize:
+              $ref: '../common/resource-types.yaml#/components/schemas/PageSize'
+            total: {type: integer, minimum: 0, maximum: 2147483647}
+            asOf:
+              $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+
+    OkPageOfImpact:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          $ref: '../common/resource-types.yaml#/components/schemas/PageOfImpact'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'
+
+    OkPageOfOperation:
+      type: object
+      additionalProperties: false
+      required: [data, traceId]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [items, page, pageSize, total, asOf]
+          properties:
+            items:
+              type: array
+              maxItems: 100
+              items:
+                $ref: '#/components/schemas/Operation'
+            page:
+              $ref: '../common/resource-types.yaml#/components/schemas/PageNumber'
+            pageSize:
+              $ref: '../common/resource-types.yaml#/components/schemas/PageSize'
+            total: {type: integer, minimum: 0, maximum: 2147483647}
+            asOf:
+              $ref: '../common/resource-types.yaml#/components/schemas/Time'
+        traceId:
+          $ref: '../common/resource-types.yaml#/components/schemas/Id'

@@ -1,0 +1,1079 @@
+openapi: 3.1.0
+info:
+  title: 校园资源服务平台 — 公共资源类型契约
+  version: 0.1.0
+  description: |
+    G4（空间资源）维护的资源领域类型定义，供 reservation / approval / maintenance
+    三个服务与前端共同消费。
+
+    依据：技术文档 v2.0 §3.1（数据模型）、§4.3（公共枚举与 DTO）。
+    本文件只放资源领域类型。身份类型归 G5，信封（Ok/Error/Page/Operation）归 G6，
+    两者落地后 g4.yaml 中的临时定义改为引用它们。
+
+    状态：draft —— 阶段 A 冻结评审通过后改为 frozen，之后任何改动需
+    G5、G6 及全部消费模块（G1/G2/G3）各自批准。
+  contact:
+    name: G4 空间资源
+  license:
+    name: 课程项目内部使用
+servers:
+  - url: /
+    description: |
+      本文件是类型库，不提供自有服务。保留 servers 仅为满足 OpenAPI 文档结构要求；
+      实际接口定义见 contracts/openapi/g4.yaml。
+x-contract:
+  owner: G4
+  baseline: 需求文档 v1.4 / 技术文档 v2.0
+  reviewers_required: [G5, G6, G1, G2, G3]
+  status: draft
+  changelog:
+    - version: 0.1.0
+      date: 2026-11-03
+      note: 阶段 A 初版，冻结待评审
+
+paths: {}
+
+components:
+  schemas:
+
+    # ---------- 基础标量 ----------
+
+    Id:
+      type: string
+      description: UUID 小写标准 36 字符。
+      pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+      example: '9f1c0a3e-5b7d-4c21-8e64-2a1b3c4d5e6f'
+
+    Version:
+      type: string
+      description: |
+        正整数 V，范围 1..9223372036854775807，JSON 以十进制字符串传输
+        （禁止浮点精度丢失）。不得为 0、不得有前导零、不得为负数。
+      pattern: '^[1-9][0-9]{0,18}$'
+      example: '3'
+
+    Time:
+      type: string
+      description: RFC3339 含偏移的时间戳；输出统一 +08:00 且毫秒精度。
+      format: date-time
+      example: '2026-11-03T09:00:00.000+08:00'
+
+    Date:
+      type: string
+      description: 北京时间业务日期，YYYY-MM-DD。
+      pattern: '^[0-9]{4}-[0-9]{2}-[0-9]{2}$'
+      example: '2026-11-03'
+
+    Minute:
+      type: string
+      description: |
+        HH:mm，范围 00:00..24:00。24:00 只允许出现在区间结束位，不得作为开始。
+      pattern: '^(([01][0-9]|2[0-3]):[0-5][0-9]|24:00)$'
+      example: '22:00'
+
+    Meta:
+      type: object
+      description: 所有可变聚合共有的审计字段。
+      additionalProperties: false
+      required: [id, version, createdAt, updatedAt]
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        version:
+          $ref: '#/components/schemas/Version'
+        createdAt:
+          $ref: '#/components/schemas/Time'
+        updatedAt:
+          $ref: '#/components/schemas/Time'
+
+    Ref:
+      type: object
+      description: 指向某来源对象的引用。id 为来源自身 ID，不是 claimId。
+      additionalProperties: false
+      required: [type, id]
+      properties:
+        type:
+          $ref: '#/components/schemas/SourceType'
+        id:
+          $ref: '#/components/schemas/Id'
+
+    # ---------- 枚举 ----------
+
+    SourceType:
+      type: string
+      description: |
+        来源类型。前四项是资源占用来源，后三项是审计/配置来源，不参与资源占用。
+
+        PERSONAL —— G1 个人预约，作用单座，seatId 必须是本室座位。
+        WHOLE    —— G2 整室批准，作用整间教室（含之后新增的座位），seatId 必须为 null。
+        REPAIR   —— G3 开始维修，作用整间教室，seatId 必须为 null。
+        ADMIN    —— G4 管理员停用，整间停用可为 null，单座停用带 seatId。
+        ACCOUNT / CONFIG / SYSTEM —— 审计与配置来源，不写资源台账。
+
+        与课程任务书的对应关系：
+        任务书第二节要求 M1 座位状态记录三种写入来源（M1 自身预约 / M2 审批占用 /
+        M3 报修下架），对应本枚举的 PERSONAL / WHOLE / REPAIR。
+        第四类 ADMIN 是任务书附件 1「自习室的登记、注销、可用性维护由管理员统一管理」
+        的直接推论：管理员停用与恢复同样会改变座位可用性，若不记录来源，将无法满足
+        任务书同段「供追溯与验收」的要求，也无法在解除停用时只解除本项限制。
+        因此本实现是任务书要求的三类的超集，不是偏离。
+      enum: [PERSONAL, WHOLE, REPAIR, ADMIN, ACCOUNT, CONFIG, SYSTEM]
+
+    ResourceSourceType:
+      type: string
+      description: |
+        资源占用来源子集。ACCOUNT / CONFIG / SYSTEM 属审计与配置来源，
+        不参与资源占用，不得出现在台账切片或占用查询里。
+      enum: [PERSONAL, WHOLE, REPAIR, ADMIN]
+
+    ClaimState:
+      type: string
+      description: |
+        占用台账状态。除 ACTIVE 外均为终态墓碑，不可删除、不可复活。
+
+        ACTIVE      —— 占用生效中。
+        RELEASED    —— 由来源 owner 主动释放。
+        INVALIDATED —— 被维护（停用/维修/注销）强制失效，非来源自身释放。
+                       此时 G4 不冒充来源方生成更高 sourceVersion，而是保存独立
+                       永久失效标记与 ledgerVersion。
+        REJECTED    —— 裁决结果为拒绝（资源冲突、资格撤销）。
+        EXPIRED     —— 截止时未取得有效批准。
+        ABSENT      —— 仅用于 CHECK_ONLY 的结果表达，表示"当前无占用"，不落库。
+      enum: [ACTIVE, RELEASED, INVALIDATED, REJECTED, EXPIRED, ABSENT]
+
+    UnavailableReason:
+      type: string
+      description: |
+        不可用原因。判定顺序固定，任一命中即不可用，可同时返回多项。
+        顺序：房间有效 → 座位有效 → 访问院系 → 完整开放 → ADMIN → REPAIR → WHOLE → PERSONAL。
+      enum:
+        - ROOM_DISABLED
+        - SEAT_DISABLED
+        - DEPARTMENT_RESTRICTED
+        - CLOSED_HOURS
+        - ADMIN_RESTRICTION
+        - REPAIR_RESTRICTION
+        - WHOLE_OCCUPIED
+        - PERSONAL_OCCUPIED
+
+    Socket:
+      type: string
+      description: 座位插座类型。
+      enum: [NONE, FIXED, RAIL]
+
+    RoomType:
+      type: string
+      description: 空间类型。
+      enum: [CLASSROOM, LIBRARY, OTHER]
+
+    ImpactEffect:
+      type: string
+      description: |
+        变更对该受影响记录的实际效果。
+        CANCEL_SYSTEM —— 整条系统取消，保留历史，不截短不改签。
+        KEEP_NO_SHOW  —— 保留一次未签到违约（签到截止早于或等于维护生效时刻）。
+        KEEP_COMPLETED—— 已完成记录不追溯删除。
+      enum: [CANCEL_SYSTEM, KEEP_NO_SHOW, KEEP_COMPLETED]
+
+    ResourceChangeKind:
+      type: string
+      enum: [ROOM_UPDATE, SEAT_UPDATE, OPENING_REPLACE, RESTRICT]
+
+    # ---------- 房间与座位 ----------
+
+    Weekly:
+      type: object
+      description: 周规则中的一段开放区间。
+      additionalProperties: false
+      required: [weekday, start, end]
+      properties:
+        weekday:
+          type: integer
+          minimum: 1
+          maximum: 7
+          description: 1=周一 … 7=周日。
+        start:
+          $ref: '#/components/schemas/Minute'
+        end:
+          $ref: '#/components/schemas/Minute'
+
+    DayInterval:
+      type: object
+      additionalProperties: false
+      required: [start, end]
+      properties:
+        start:
+          $ref: '#/components/schemas/Minute'
+        end:
+          $ref: '#/components/schemas/Minute'
+
+    ExceptionDay:
+      type: object
+      description: |
+        指定日期例外。当日例外整体覆盖周规则（不是叠加）。
+        intervals 为空数组表示该日整日关闭。
+      additionalProperties: false
+      required: [date, intervals]
+      properties:
+        date:
+          $ref: '#/components/schemas/Date'
+        intervals:
+          type: array
+          maxItems: 8
+          items:
+            $ref: '#/components/schemas/DayInterval'
+
+    Opening:
+      type: object
+      description: |
+        开放规则。每日期最多 8 个不重叠区间，start < end，跨午夜须拆两日。
+        exceptions 中 date 唯一，最多 366 天。
+      additionalProperties: false
+      required: [weekly, exceptions, version]
+      properties:
+        weekly:
+          type: array
+          maxItems: 56
+          items:
+            $ref: '#/components/schemas/Weekly'
+        exceptions:
+          type: array
+          maxItems: 366
+          items:
+            $ref: '#/components/schemas/ExceptionDay'
+        version:
+          $ref: '#/components/schemas/Version'
+
+    OpeningInput:
+      type: object
+      description: 提交开放规则时的入参，不含 version。
+      additionalProperties: false
+      required: [weekly, exceptions]
+      properties:
+        weekly:
+          type: array
+          maxItems: 56
+          items:
+            $ref: '#/components/schemas/Weekly'
+        exceptions:
+          type: array
+          maxItems: 366
+          items:
+            $ref: '#/components/schemas/ExceptionDay'
+
+    Room:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - version
+        - createdAt
+        - updatedAt
+        - code
+        - name
+        - location
+        - area
+        - type
+        - capacity
+        - schoolWide
+        - deptId
+        - enabled
+        - opening
+        - allowedActions
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        version:
+          $ref: '#/components/schemas/Version'
+        createdAt:
+          $ref: '#/components/schemas/Time'
+        updatedAt:
+          $ref: '#/components/schemas/Time'
+        code:
+          type: string
+          minLength: 1
+          maxLength: 40
+          description: 房间编号，全局唯一，创建后不可修改。
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        location:
+          type: string
+          minLength: 1
+          maxLength: 200
+        area:
+          type: string
+          minLength: 1
+          maxLength: 100
+        type:
+          $ref: '#/components/schemas/RoomType'
+        capacity:
+          type: integer
+          minimum: 1
+          maximum: 10000
+          description: |
+            教室容量。只用于整室申请的人数上限校验，
+            不限制已登记座位总数或有效座位数。
+        schoolWide:
+          type: boolean
+          description: true 时 deptId 必须为 null；false 时 deptId 必须是有效院系。
+        deptId:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+          description: 归属院系。字段必有，可为明确 null。
+        enabled:
+          type: boolean
+          description: 停用即注销，历史保留；恢复不复活旧记录。
+        opening:
+          $ref: '#/components/schemas/Opening'
+        allowedActions:
+          type: array
+          maxItems: 64
+          items:
+            type: string
+          description: 当前操作者在该对象上可执行的动作，由服务端求值。仅作展示，后端每次仍独立校验。
+
+    RoomSummary:
+      type: object
+      description: 房间目录（G4-P18）返回的精简视图，不含开放规则与占用信息。
+      additionalProperties: false
+      required:
+        - id
+        - version
+        - code
+        - name
+        - location
+        - area
+        - type
+        - capacity
+        - schoolWide
+        - deptId
+        - enabled
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        version:
+          $ref: '#/components/schemas/Version'
+        code:
+          type: string
+          minLength: 1
+          maxLength: 40
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        location:
+          type: string
+          minLength: 1
+          maxLength: 200
+        area:
+          type: string
+          minLength: 1
+          maxLength: 100
+        type:
+          $ref: '#/components/schemas/RoomType'
+        capacity:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        schoolWide:
+          type: boolean
+        deptId:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+        enabled:
+          type: boolean
+          enum: [true]
+          description: 目录只返回有效登记房间，恒为 true。
+
+    Seat:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - version
+        - createdAt
+        - updatedAt
+        - code
+        - roomId
+        - roomVersion
+        - socketType
+        - enabled
+        - reasons
+        - allowedActions
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        version:
+          $ref: '#/components/schemas/Version'
+        createdAt:
+          $ref: '#/components/schemas/Time'
+        updatedAt:
+          $ref: '#/components/schemas/Time'
+        code:
+          type: string
+          minLength: 1
+          maxLength: 40
+          description: 座位编号，全局唯一。有历史的座位不允许改编号或迁室。
+        roomId:
+          $ref: '#/components/schemas/Id'
+        roomVersion:
+          $ref: '#/components/schemas/Version'
+        socketType:
+          $ref: '#/components/schemas/Socket'
+        enabled:
+          type: boolean
+        reasons:
+          type: array
+          maxItems: 8
+          items:
+            $ref: '#/components/schemas/UnavailableReason'
+          description: |
+            不可用原因。空数组在带 start/end 的查询中表示"可用"；
+            在未传区间的查询（含 G4-P17 报修选座）中表示"未评估"，
+            绝不代表可预约。
+        allowedActions:
+          type: array
+          maxItems: 64
+          items:
+            type: string
+
+    RoomAvailability:
+      type: object
+      description: G4-L01 房间维度可用性结果，供 G1 搜索页使用。
+      additionalProperties: false
+      required: [room, start, end, availableSeatCount, reasons]
+      properties:
+        room:
+          $ref: '#/components/schemas/Room'
+        start:
+          $ref: '#/components/schemas/Time'
+        end:
+          $ref: '#/components/schemas/Time'
+        availableSeatCount:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+          description: 按实际限制计算，不能用登记座位总数代替。
+        reasons:
+          type: array
+          maxItems: 8
+          items:
+            $ref: '#/components/schemas/UnavailableReason'
+
+    SeatAvailability:
+      type: object
+      description: G4-L01 座位维度可用性结果。
+      additionalProperties: false
+      required: [seat, roomName, start, end, available]
+      properties:
+        seat:
+          $ref: '#/components/schemas/Seat'
+        roomName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        start:
+          $ref: '#/components/schemas/Time'
+        end:
+          $ref: '#/components/schemas/Time'
+        available:
+          type: boolean
+
+    ScopeFacts:
+      type: object
+      description: |
+        房间范围事实，供 G5 做授权求值与通知路由。
+        这是唯一后台范围事实链，G5 不得递归再调 G4-I01。
+      additionalProperties: false
+      required: [roomId, schoolWide, deptId, enabled, roomVersion, asOf]
+      properties:
+        roomId:
+          $ref: '#/components/schemas/Id'
+        schoolWide:
+          type: boolean
+        deptId:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+        enabled:
+          type: boolean
+        roomVersion:
+          $ref: '#/components/schemas/Version'
+        asOf:
+          $ref: '#/components/schemas/Time'
+
+    # ---------- 占用台账 ----------
+
+    ClaimHistory:
+      type: object
+      description: 台账追加历史。只追加，不可修改或删除。
+      additionalProperties: false
+      required: [eventId, state, effectiveAt, processedAt, reason, operationId, auditEventId, sourceVersion]
+      properties:
+        eventId:
+          $ref: '#/components/schemas/Id'
+        state:
+          $ref: '#/components/schemas/ClaimState'
+        effectiveAt:
+          $ref: '#/components/schemas/Time'
+        processedAt:
+          $ref: '#/components/schemas/Time'
+          description: 系统处理时刻，与 effectiveAt 分开保存，不能用扫描延迟拉长占用。
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        operationId:
+          $ref: '#/components/schemas/Id'
+        auditEventId:
+          $ref: '#/components/schemas/Id'
+        sourceVersion:
+          $ref: '#/components/schemas/Version'
+
+    Claim:
+      type: object
+      description: |
+        占用台账主体。sourceType+sourceId 唯一。
+        终态墓碑永久保留，晚到的 ACTIVE 只能得到 SOURCE_TERMINAL。
+      additionalProperties: false
+      required:
+        - id
+        - version
+        - createdAt
+        - updatedAt
+        - source
+        - roomId
+        - seatId
+        - start
+        - end
+        - state
+        - effectiveAt
+        - releasedAt
+        - reason
+        - releaseReason
+        - sourceVersion
+        - operationId
+        - history
+      properties:
+        id:
+          $ref: '#/components/schemas/Id'
+        version:
+          $ref: '#/components/schemas/Version'
+          description: G4 账本版本。与 resultVersion（来源最大版本）不可混用。
+        createdAt:
+          $ref: '#/components/schemas/Time'
+        updatedAt:
+          $ref: '#/components/schemas/Time'
+        source:
+          $ref: '#/components/schemas/Ref'
+        roomId:
+          $ref: '#/components/schemas/Id'
+        seatId:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+          description: |
+            PERSONAL 必须为本室座位 ID；WHOLE / REPAIR 必须为 null（作用整间）；
+            ADMIN 可为 null（整间）或本室座位 ID（单座）。
+        start:
+          $ref: '#/components/schemas/Time'
+        end:
+          oneOf:
+            - $ref: '#/components/schemas/Time'
+            - type: 'null'
+          description: null 表示无固定结束（例如未释放的 REPAIR 持续到显式释放）。
+        state:
+          $ref: '#/components/schemas/ClaimState'
+        effectiveAt:
+          $ref: '#/components/schemas/Time'
+          description: 实际生效时刻。维修使用系统确认建立的时刻，不得用客户端时间倒填。
+        releasedAt:
+          oneOf:
+            - $ref: '#/components/schemas/Time'
+            - type: 'null'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        releaseReason:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 1000
+            - type: 'null'
+        sourceVersion:
+          $ref: '#/components/schemas/Version'
+        operationId:
+          $ref: '#/components/schemas/Id'
+        history:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/ClaimHistory'
+          description: 最近 100 条。更多走 G4-P15 分页，不得截断到不可发现。
+
+    ClaimResult:
+      type: object
+      description: 台账操作结果，G4-I04 / G4-I05 / G4-I06 复用。
+      additionalProperties: false
+      required:
+        - source
+        - claimId
+        - state
+        - effectiveAt
+        - effectiveApprovedAt
+        - resultVersion
+        - impactCount
+        - reason
+        - rejection
+      properties:
+        source:
+          $ref: '#/components/schemas/Ref'
+        claimId:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+        state:
+          $ref: '#/components/schemas/ClaimState'
+        effectiveAt:
+          oneOf:
+            - $ref: '#/components/schemas/Time'
+            - type: 'null'
+        effectiveApprovedAt:
+          oneOf:
+            - $ref: '#/components/schemas/Time'
+            - type: 'null'
+          description: 有效批准时刻，即锁内完成最终资格与冲突判定的 decisionAt，且该事务最终提交成功。
+        resultVersion:
+          $ref: '#/components/schemas/Version'
+          description: 来源的最大版本。不是 G4 账本版本。
+        impactCount:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        reason:
+          oneOf:
+            - type: string
+              minLength: 1
+              maxLength: 1000
+            - type: 'null'
+        rejection:
+          oneOf:
+            - $ref: '#/components/schemas/ClaimRejection'
+            - type: 'null'
+
+    SourceClaim:
+      type: object
+      description: G4-I07 批量查询的单项结果。result 为 null 表示查无结果，不是成功批准。
+      additionalProperties: false
+      required: [sourceId, result]
+      properties:
+        sourceId:
+          $ref: '#/components/schemas/Id'
+        result:
+          oneOf:
+            - $ref: '#/components/schemas/ClaimResult'
+            - type: 'null'
+
+    # ---------- 变更与影响 ----------
+
+    RoomPatch:
+      type: object
+      description: |
+        房间可变更字段。至少一个属性。code 与 roomId 不允许 patch。
+        切换 schoolWide 必须同时给 deptId。
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        location:
+          type: string
+          minLength: 1
+          maxLength: 200
+        area:
+          type: string
+          minLength: 1
+          maxLength: 100
+        type:
+          $ref: '#/components/schemas/RoomType'
+        capacity:
+          type: integer
+          minimum: 1
+          maximum: 10000
+        schoolWide:
+          type: boolean
+        deptId:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+        enabled:
+          type: boolean
+
+    SeatPatch:
+      type: object
+      description: |
+        座位可变更字段。至少一个属性。不能改编号、不能迁室。
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        socketType:
+          $ref: '#/components/schemas/Socket'
+        enabled:
+          type: boolean
+
+    ResourceChange:
+      description: |
+        一次资源变更的完整描述，被预览（G4-P06）与提交（G4-P08/P10/P11/P12）共用，
+        两处正文必须逐字一致，否则提交返回 409 IMPACT_CHANGED。
+
+        由四个完整子模式按 kind 判别组成。父模式只做 oneOf 组合，
+        不得再声明 type/additionalProperties/properties，否则子类型字段会被父模式拒绝，
+        请求无法构造。
+      oneOf:
+        - $ref: '#/components/schemas/ResourceChangeRoomUpdate'
+        - $ref: '#/components/schemas/ResourceChangeSeatUpdate'
+        - $ref: '#/components/schemas/ResourceChangeOpeningReplace'
+        - $ref: '#/components/schemas/ResourceChangeRestrict'
+
+    ResourceChangeRoomUpdate:
+      type: object
+      additionalProperties: false
+      required: [kind, values]
+      properties:
+        kind:
+          type: string
+          enum: [ROOM_UPDATE]
+        values:
+          $ref: '#/components/schemas/RoomPatch'
+
+    ResourceChangeSeatUpdate:
+      type: object
+      additionalProperties: false
+      required: [kind, seatId, values]
+      properties:
+        kind:
+          type: string
+          enum: [SEAT_UPDATE]
+        seatId:
+          $ref: '#/components/schemas/Id'
+        values:
+          $ref: '#/components/schemas/SeatPatch'
+
+    ResourceChangeOpeningReplace:
+      type: object
+      additionalProperties: false
+      required: [kind, opening]
+      properties:
+        kind:
+          type: string
+          enum: [OPENING_REPLACE]
+        opening:
+          $ref: '#/components/schemas/OpeningInput'
+
+    ResourceChangeRestrict:
+      type: object
+      additionalProperties: false
+      required: [kind, seatId, start, end, reason]
+      properties:
+        kind:
+          type: string
+          enum: [RESTRICT]
+        seatId:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+          description: null 表示整间停用；非 null 表示单座停用。
+        start:
+          $ref: '#/components/schemas/Time'
+        end:
+          oneOf:
+            - $ref: '#/components/schemas/Time'
+            - type: 'null'
+          description: null 表示无限期，直到显式释放。
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+
+    Impact:
+      type: object
+      description: 单条受影响记录。普通视图不含他人姓名、用途或 sourceId。
+      additionalProperties: false
+      required: [source, roomId, seatId, effect, reason, effectiveAt]
+      properties:
+        source:
+          $ref: '#/components/schemas/Ref'
+        roomId:
+          $ref: '#/components/schemas/Id'
+        seatId:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+        effect:
+          $ref: '#/components/schemas/ImpactEffect'
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+        effectiveAt:
+          oneOf:
+            - $ref: '#/components/schemas/Time'
+            - type: 'null'
+
+    ImpactPreview:
+      type: object
+      description: |
+        影响预览结果。token 五分钟有效，绑定操作者 + room.version +
+        change 规范正文摘要 + 受影响来源版本集合。预览本身不占用资源。
+      additionalProperties: false
+      required: [token, roomVersion, affectedCount, digest, expiresAt, impacts]
+      properties:
+        token:
+          $ref: '#/components/schemas/Id'
+        roomVersion:
+          $ref: '#/components/schemas/Version'
+        affectedCount:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        digest:
+          type: string
+          minLength: 64
+          maxLength: 64
+          description: change 规范正文的散列。提交时锁内重算，不一致返回 IMPACT_CHANGED。
+        expiresAt:
+          $ref: '#/components/schemas/Time'
+        impacts:
+          $ref: '#/components/schemas/PageOfImpact'
+
+    # ---------- 统计 ----------
+
+    ResourceSlice:
+      type: object
+      description: |
+        G4-L03 返回的原始历史切片。G1 据此按需求 §3.2 求并集与交集，
+        不重新解释当前开放规则。
+      additionalProperties: false
+      required: [seatId, from, to, open, sourceType, sourceId, active, version]
+      properties:
+        seatId:
+          $ref: '#/components/schemas/Id'
+        from:
+          $ref: '#/components/schemas/Time'
+        to:
+          $ref: '#/components/schemas/Time'
+        open:
+          type: boolean
+          description: 该切片是否落在当时的开放规则内。
+        sourceType:
+          oneOf:
+            - $ref: '#/components/schemas/ResourceSourceType'
+            - type: 'null'
+        sourceId:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+        active:
+          type: boolean
+        version:
+          $ref: '#/components/schemas/Version'
+
+    StatisticRoom:
+      type: object
+      description: 统计用的房间行。有效房间即使零预约也要出现；查询期有效而当前停用的房间仍出现。
+      additionalProperties: false
+      required: [roomId, code, name, registeredAt, enabled]
+      properties:
+        roomId:
+          $ref: '#/components/schemas/Id'
+        code:
+          type: string
+          minLength: 1
+          maxLength: 40
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        registeredAt:
+          $ref: '#/components/schemas/Time'
+          description: 登记时刻。该日结束时刻严格晚于 registeredAt 才生成日/房间行。
+        enabled:
+          type: boolean
+
+    # ---------- 待 G6 公共定义落地后替换的临时类型 ----------
+
+    ClaimRejection:
+      type: object
+      description: |
+        台账裁决的拒绝事实，随来源墓碑持久化，并与原 operation 绑定重放。
+
+        形状必须与 HTTP 的 Error 完全一致（含 traceId 与 details），
+        否则无法重放原 409/422 的完整错误体。
+        details.operationId 必须等于本次 operationId。
+
+        x-must-match: contracts/openapi/g4.yaml#/components/schemas/Error
+        x-pending-common: G6 —— 其公共信封落地后改为直接引用 Error。
+      x-must-match: contracts/openapi/g4.yaml#/components/schemas/Error
+      x-pending-common: G6
+      additionalProperties: false
+      required: [code, message, traceId, details]
+      properties:
+        code:
+          $ref: '#/components/schemas/ClaimRejectionCode'
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        traceId:
+          $ref: '#/components/schemas/Id'
+        details:
+          $ref: '#/components/schemas/RejectionDetails'
+
+    ClaimRejectionCode:
+      type: string
+      description: |
+        台账可持久化的拒绝码。三种映射：
+        RESOURCE_CONFLICT      → REJECTED（409）
+        QUALIFICATION_REVOKED  → REJECTED（422）
+        DEADLINE_PASSED        → EXPIRED（422）
+        暂时网络失败、旧版本、快照不一致、未到截止都不写拒绝事实。
+      enum: [RESOURCE_CONFLICT, QUALIFICATION_REVOKED, DEADLINE_PASSED]
+
+    RejectionDetails:
+      type: object
+      additionalProperties: false
+      required: [fields, conflicts, currentVersion, operationId, retryAfterSeconds]
+      properties:
+        fields:
+          type: array
+          maxItems: 30
+          items:
+            type: object
+            additionalProperties: false
+            required: [field, reason]
+            properties:
+              field:
+                type: string
+                minLength: 1
+                maxLength: 100
+              reason:
+                type: string
+                minLength: 1
+                maxLength: 200
+        conflicts:
+          type: array
+          maxItems: 100
+          items:
+            type: object
+            additionalProperties: false
+            required: [category, roomId, seatId, start, end]
+            properties:
+              category:
+                $ref: '#/components/schemas/UnavailableReason'
+              roomId:
+                $ref: '#/components/schemas/Id'
+              seatId:
+                oneOf:
+                  - $ref: '#/components/schemas/Id'
+                  - type: 'null'
+              start:
+                $ref: '#/components/schemas/Time'
+              end:
+                oneOf:
+                  - $ref: '#/components/schemas/Time'
+                  - type: 'null'
+        currentVersion:
+          oneOf:
+            - $ref: '#/components/schemas/Version'
+            - type: 'null'
+        operationId:
+          oneOf:
+            - $ref: '#/components/schemas/Id'
+            - type: 'null'
+        retryAfterSeconds:
+          oneOf:
+            - type: integer
+              minimum: 0
+              maximum: 3600
+            - type: 'null'
+
+    ClaimAdjudication:
+      type: object
+      description: |
+        台账命令的裁决结果（G4-I04 / G4-I06 复用）。
+        APPLIED 含成功与已终结释放；DECLINED 保留原拒绝与终态。
+        消费者不得因 HTTP 200 就将其判为批准。
+      additionalProperties: false
+      required: [kind, result]
+      properties:
+        kind:
+          type: string
+          enum: [APPLIED, DECLINED]
+        result:
+          $ref: '#/components/schemas/ClaimResult'
+        error:
+          oneOf:
+            - $ref: '#/components/schemas/ClaimRejection'
+            - type: 'null'
+        httpStatus:
+          oneOf:
+            - type: integer
+              enum: [409, 422]
+            - type: 'null'
+        rejection:
+          oneOf:
+            - $ref: '#/components/schemas/ClaimRejection'
+            - type: 'null'
+        resultVersion:
+          oneOf:
+            - $ref: '#/components/schemas/Version'
+            - type: 'null'
+
+    PageOfImpact:
+      type: object
+      description: |
+        影响条目的分页封装。遵循技术文档 §4.1 的 Page<T> 约定。
+        x-pending-common: G6 的 contracts/common/envelope 落地后改为引用其 Page 定义。
+      x-pending-common: G6
+      additionalProperties: false
+      required: [items, page, pageSize, total, asOf]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Impact'
+        page:
+          $ref: '#/components/schemas/PageNumber'
+        pageSize:
+          $ref: '#/components/schemas/PageSize'
+        total:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        asOf:
+          $ref: '#/components/schemas/Time'
+
+    PageNumber:
+      type: integer
+      minimum: 1
+      maximum: 1000000
+      default: 1
+      description: 页码，从 1 开始。越界时 items 为空但保留 total。
+      x-pending-common: G6
+
+    PageSize:
+      type: integer
+      minimum: 1
+      maximum: 100
+      default: 20
+      description: 每页条数。
+      x-pending-common: G6
