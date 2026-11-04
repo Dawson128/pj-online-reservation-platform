@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "x-review-status": "BASELINE_PENDING_OWNER_REVIEW",
+  "x-source": "技术文档v2 §4.3、§5.5",
+  "$id": "urn:pj:g5:proposed:G2:ConfigValues:v1",
+  "title": "G2 参数基线（G5 按文档整理，待 owner 确认）",
+  "x-owner-group": "G2",
+  "required": [
+    "applicationAdvanceDays"
+  ],
+  "properties": {
+    "applicationAdvanceDays": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 14,
+      "default": 14,
+      "title": "整室申请提前天数",
+      "description": "只影响新整室申请的提前窗口，不改变已有申请截止时间。",
+      "x-unit": "天",
+      "x-owner-group": "G2"
+    }
+  }
+}

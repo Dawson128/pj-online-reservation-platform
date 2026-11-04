@@ -1,0 +1,121 @@
+[
+  {
+    "port": "G5-L04.get",
+    "schema": "Operation",
+    "data": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "version": "2",
+      "createdAt": "2026-11-03T15:00:00.000+08:00",
+      "updatedAt": "2026-11-03T15:00:00.000+08:00",
+      "ownerGroup": "G5",
+      "source": {
+        "type": "SYSTEM",
+        "id": "00000000-0000-4000-8000-000000000001"
+      },
+      "roomId": null,
+      "scopeKind": "SYSTEM",
+      "category": "OTHER",
+      "eventId": null,
+      "actorId": "00000000-0000-4000-8000-000000000001",
+      "operationId": "00000000-0000-4000-8000-000000000001",
+      "status": "PENDING",
+      "phase": "NONE",
+      "acceptedAt": "2026-11-03T15:00:00.000+08:00",
+      "attemptCount": 1,
+      "nextRetryAt": "2026-11-03T15:00:00.000+08:00",
+      "error": null,
+      "needsAttention": false,
+      "result": null,
+      "statusUrl": "/api/m2/operations/00000000-0000-4000-8000-000000000001",
+      "allowedActions": []
+    }
+  },
+  {
+    "port": "G5-L04.list",
+    "schema": "Page",
+    "data": {
+      "items": [
+        {
+          "id": "00000000-0000-4000-8000-000000000001",
+          "version": "2",
+          "createdAt": "2026-11-03T15:00:00.000+08:00",
+          "updatedAt": "2026-11-03T15:00:00.000+08:00",
+          "ownerGroup": "G5",
+          "source": {
+            "type": "SYSTEM",
+            "id": "00000000-0000-4000-8000-000000000001"
+          },
+          "roomId": null,
+          "scopeKind": "SYSTEM",
+          "category": "OTHER",
+          "eventId": null,
+          "actorId": "00000000-0000-4000-8000-000000000001",
+          "operationId": "00000000-0000-4000-8000-000000000001",
+          "status": "PENDING",
+          "phase": "NONE",
+          "acceptedAt": "2026-11-03T15:00:00.000+08:00",
+          "attemptCount": 1,
+          "nextRetryAt": "2026-11-03T15:00:00.000+08:00",
+          "error": null,
+          "needsAttention": false,
+          "result": null,
+          "statusUrl": "/api/m2/operations/00000000-0000-4000-8000-000000000001",
+          "allowedActions": []
+        }
+      ],
+      "page": 1,
+      "pageSize": 20,
+      "total": 1,
+      "asOf": "2026-11-03T15:00:00.000+08:00"
+    }
+  },
+  {
+    "port": "G5-L04.metrics",
+    "schema": "Metrics",
+    "data": {
+      "asOf": "2026-11-03T15:00:00.000+08:00",
+      "operations": {
+        "pendingCount": 1,
+        "attentionCount": 0,
+        "outboxCount": 1,
+        "oldestOutboxAgeSeconds": 0,
+        "oldestPendingAgeSeconds": 0,
+        "oldestPendingRef": {
+          "kind": "OPERATION",
+          "id": "00000000-0000-4000-8000-000000000001",
+          "since": "2026-11-03T15:00:00.000+08:00",
+          "detailUrl": "/api/m2/operations/00000000-0000-4000-8000-000000000001"
+        }
+      },
+      "notifications": null
+    }
+  },
+  {
+    "port": "G5-L05.retry",
+    "schema": "RecoveryBody",
+    "data": {
+      "expectedVersion": "1",
+      "reason": "依赖已恢复，重排原事件"
+    }
+  },
+  {
+    "port": "G5-L07.get",
+    "schema": "OutboxReference",
+    "data": {
+      "id": "00000000-0000-4000-8000-000000000001",
+      "eventId": "00000000-0000-4000-8000-000000000001",
+      "source": {
+        "type": "SYSTEM",
+        "id": "00000000-0000-4000-8000-000000000001"
+      },
+      "roomId": null,
+      "ownerGroup": "G5",
+      "destination": "G6",
+      "occurredAt": "2026-11-03T15:00:00.000+08:00",
+      "acceptedAt": null,
+      "attemptCount": 1,
+      "nextRetryAt": "2026-11-03T15:00:00.000+08:00",
+      "error": null
+    }
+  }
+]

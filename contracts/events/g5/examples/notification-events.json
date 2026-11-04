@@ -1,0 +1,893 @@
+[
+  {
+    "eventId": "00000000-0000-0000-0000-000000000800",
+    "eventType": "ReservationReminderEarly",
+    "schemaVersion": 1,
+    "producer": "G1",
+    "aggregate": {
+      "type": "PERSONAL",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000800",
+      "producer": "G1",
+      "source": {
+        "type": "PERSONAL",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "reservationId": "00000000-0000-0000-0000-000000000900",
+      "ownerId": "00000000-0000-0000-0000-000000000101",
+      "roomName": "sample",
+      "seatCode": "sample",
+      "start": "2026-11-03T10:00:00.000+08:00",
+      "end": "2026-11-03T11:00:00.000+08:00",
+      "deadline": "2026-11-03T10:00:00.000+08:00"
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000801",
+    "eventType": "ReservationReminderLate",
+    "schemaVersion": 1,
+    "producer": "G1",
+    "aggregate": {
+      "type": "PERSONAL",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000801",
+      "producer": "G1",
+      "source": {
+        "type": "PERSONAL",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "reservationId": "00000000-0000-0000-0000-000000000900",
+      "ownerId": "00000000-0000-0000-0000-000000000101",
+      "roomName": "sample",
+      "seatCode": "sample",
+      "start": "2026-11-03T10:00:00.000+08:00",
+      "end": "2026-11-03T11:00:00.000+08:00",
+      "deadline": "2026-11-03T10:00:00.000+08:00"
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000802",
+    "eventType": "ReservationCancelled",
+    "schemaVersion": 1,
+    "producer": "G1",
+    "aggregate": {
+      "type": "PERSONAL",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000802",
+      "producer": "G1",
+      "source": {
+        "type": "PERSONAL",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "reservationId": "00000000-0000-0000-0000-000000000900",
+      "ownerId": "00000000-0000-0000-0000-000000000101",
+      "roomName": "sample",
+      "seatCode": "sample",
+      "start": "2026-11-03T10:00:00.000+08:00",
+      "end": "2026-11-03T11:00:00.000+08:00",
+      "deadline": "2026-11-03T10:00:00.000+08:00",
+      "status": "CANCELLED_USER",
+      "reason": "sample",
+      "maintenanceSource": {
+        "type": "PERSONAL",
+        "id": "00000000-0000-0000-0000-000000000900"
+      }
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000803",
+    "eventType": "AppealDecided",
+    "schemaVersion": 1,
+    "producer": "G1",
+    "aggregate": {
+      "type": "PERSONAL",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000803",
+      "producer": "G1",
+      "source": {
+        "type": "PERSONAL",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "appealId": "00000000-0000-0000-0000-000000000900",
+      "violationId": "00000000-0000-0000-0000-000000000900",
+      "reservationId": "00000000-0000-0000-0000-000000000900",
+      "ownerId": "00000000-0000-0000-0000-000000000101",
+      "decision": "KEEP",
+      "reason": "sample"
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000804",
+    "eventType": "ViolationCorrected",
+    "schemaVersion": 1,
+    "producer": "G1",
+    "aggregate": {
+      "type": "PERSONAL",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000804",
+      "producer": "G1",
+      "source": {
+        "type": "PERSONAL",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "violationId": "00000000-0000-0000-0000-000000000900",
+      "reservationId": "00000000-0000-0000-0000-000000000900",
+      "ownerId": "00000000-0000-0000-0000-000000000101",
+      "reason": "sample"
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000805",
+    "eventType": "ApprovalTaskOpened",
+    "schemaVersion": 1,
+    "producer": "G2",
+    "aggregate": {
+      "type": "WHOLE",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000805",
+      "producer": "G2",
+      "source": {
+        "type": "WHOLE",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "applicationId": "00000000-0000-0000-0000-000000000900",
+      "applicantId": "00000000-0000-0000-0000-000000000101",
+      "start": "2026-11-03T10:00:00.000+08:00",
+      "end": "2026-11-03T11:00:00.000+08:00",
+      "status": "PENDING_L1",
+      "reason": "sample",
+      "level": 1,
+      "deadline": "2026-11-03T10:00:00.000+08:00",
+      "excludedActorIds": [
+        "00000000-0000-0000-0000-000000000101"
+      ]
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000806",
+    "eventType": "ApprovalStatusChanged",
+    "schemaVersion": 1,
+    "producer": "G2",
+    "aggregate": {
+      "type": "WHOLE",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000806",
+      "producer": "G2",
+      "source": {
+        "type": "WHOLE",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "applicationId": "00000000-0000-0000-0000-000000000900",
+      "applicantId": "00000000-0000-0000-0000-000000000101",
+      "start": "2026-11-03T10:00:00.000+08:00",
+      "end": "2026-11-03T11:00:00.000+08:00",
+      "status": "APPROVED",
+      "reason": "sample"
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000807",
+    "eventType": "WorkOrderAssigned",
+    "schemaVersion": 1,
+    "producer": "G3",
+    "aggregate": {
+      "type": "REPAIR",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000807",
+      "producer": "G3",
+      "source": {
+        "type": "REPAIR",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "workOrderId": "00000000-0000-0000-0000-000000000900",
+      "reporterId": "00000000-0000-0000-0000-000000000101",
+      "newAssigneeId": "00000000-0000-0000-0000-000000000103",
+      "oldAssigneeId": "00000000-0000-0000-0000-000000000102",
+      "reason": "sample"
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000808",
+    "eventType": "WorkOrderRepairStarted",
+    "schemaVersion": 1,
+    "producer": "G3",
+    "aggregate": {
+      "type": "REPAIR",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000808",
+      "producer": "G3",
+      "source": {
+        "type": "REPAIR",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "workOrderId": "00000000-0000-0000-0000-000000000900",
+      "reporterId": "00000000-0000-0000-0000-000000000101",
+      "assigneeId": "00000000-0000-0000-0000-000000000103",
+      "startedAt": "2026-11-03T10:00:00.000+08:00"
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000809",
+    "eventType": "WorkOrderCompletionSubmitted",
+    "schemaVersion": 1,
+    "producer": "G3",
+    "aggregate": {
+      "type": "REPAIR",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000809",
+      "producer": "G3",
+      "source": {
+        "type": "REPAIR",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "workOrderId": "00000000-0000-0000-0000-000000000900",
+      "reporterId": "00000000-0000-0000-0000-000000000101",
+      "assigneeId": "00000000-0000-0000-0000-000000000103",
+      "submittedAt": "2026-11-03T10:00:00.000+08:00",
+      "actualRepairerIds": [
+        "00000000-0000-0000-0000-000000000103"
+      ]
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000810",
+    "eventType": "WorkOrderEscalated",
+    "schemaVersion": 1,
+    "producer": "G3",
+    "aggregate": {
+      "type": "REPAIR",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000810",
+      "producer": "G3",
+      "source": {
+        "type": "REPAIR",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "workOrderId": "00000000-0000-0000-0000-000000000900",
+      "reporterId": "00000000-0000-0000-0000-000000000101",
+      "type": "REPAIR_OVERDUE",
+      "dueAt": "2026-11-03T10:00:00.000+08:00",
+      "assigneeId": "00000000-0000-0000-0000-000000000103"
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000811",
+    "eventType": "WorkOrderAccepted",
+    "schemaVersion": 1,
+    "producer": "G3",
+    "aggregate": {
+      "type": "REPAIR",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000811",
+      "producer": "G3",
+      "source": {
+        "type": "REPAIR",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "workOrderId": "00000000-0000-0000-0000-000000000900",
+      "reporterId": "00000000-0000-0000-0000-000000000101",
+      "acceptedAt": "2026-11-03T10:00:00.000+08:00"
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000812",
+    "eventType": "WorkOrderReturned",
+    "schemaVersion": 1,
+    "producer": "G3",
+    "aggregate": {
+      "type": "REPAIR",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000812",
+      "producer": "G3",
+      "source": {
+        "type": "REPAIR",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "workOrderId": "00000000-0000-0000-0000-000000000900",
+      "reporterId": "00000000-0000-0000-0000-000000000101",
+      "assigneeId": "00000000-0000-0000-0000-000000000103",
+      "reason": "sample"
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000813",
+    "eventType": "WorkOrderClosed",
+    "schemaVersion": 1,
+    "producer": "G3",
+    "aggregate": {
+      "type": "REPAIR",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000813",
+      "producer": "G3",
+      "source": {
+        "type": "REPAIR",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "workOrderId": "00000000-0000-0000-0000-000000000900",
+      "reporterId": "00000000-0000-0000-0000-000000000101",
+      "assigneeId": "00000000-0000-0000-0000-000000000103",
+      "status": "CANCELLED",
+      "reason": "sample"
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000814",
+    "eventType": "ClaimInvalidated",
+    "schemaVersion": 1,
+    "producer": "G4",
+    "aggregate": {
+      "type": "PERSONAL",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000814",
+      "producer": "G4",
+      "source": {
+        "type": "PERSONAL",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "applicationId": "00000000-0000-0000-0000-000000000900",
+      "claimId": "00000000-0000-0000-0000-000000000900",
+      "maintenanceSource": {
+        "type": "PERSONAL",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "reason": "sample",
+      "ledgerVersion": "1",
+      "sourceVersion": "1"
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000815",
+    "eventType": "MaintenanceImpactApplied",
+    "schemaVersion": 1,
+    "producer": "G4",
+    "aggregate": {
+      "type": "PERSONAL",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000815",
+      "producer": "G4",
+      "source": {
+        "type": "PERSONAL",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "source": {
+        "type": "PERSONAL",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "affectedPersonalCount": 0,
+      "affectedWholeCount": 0,
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "reason": "sample"
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000816",
+    "eventType": "ConfigChanged",
+    "schemaVersion": 1,
+    "producer": "G5",
+    "aggregate": {
+      "type": "CONFIG",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": null,
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000816",
+      "producer": "G5",
+      "source": {
+        "type": "CONFIG",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": null,
+      "scopeKind": "SYSTEM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "configVersion": "1",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "changedKeys": [
+        "reservationMaxHours"
+      ]
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000817",
+    "eventType": "RecoveryAttention",
+    "schemaVersion": 1,
+    "producer": "G6",
+    "aggregate": {
+      "type": "PERSONAL",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": "00000000-0000-0000-0000-000000000201",
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000817",
+      "producer": "G6",
+      "source": {
+        "type": "PERSONAL",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": "00000000-0000-0000-0000-000000000201",
+      "scopeKind": "ROOM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {
+      "ownerGroup": "G1",
+      "operationId": "00000000-0000-0000-0000-000000000700",
+      "reason": "sample"
+    }
+  },
+  {
+    "eventId": "00000000-0000-0000-0000-000000000818",
+    "eventType": "AuditRecorded",
+    "schemaVersion": 1,
+    "producer": "G1",
+    "aggregate": {
+      "type": "PERSONAL",
+      "id": "00000000-0000-0000-0000-000000000900"
+    },
+    "aggregateVersion": "1",
+    "roomId": null,
+    "occurredAt": "2026-11-03T10:00:00.000+08:00",
+    "actorId": "00000000-0000-0000-0000-000000000101",
+    "actorKind": "USER",
+    "traceId": "00000000-0000-0000-0000-000000000999",
+    "operationId": "00000000-0000-0000-0000-000000000700",
+    "audit": {
+      "id": "00000000-0000-0000-0000-000000000818",
+      "producer": "G1",
+      "source": {
+        "type": "PERSONAL",
+        "id": "00000000-0000-0000-0000-000000000900"
+      },
+      "roomId": null,
+      "scopeKind": "SYSTEM",
+      "actorId": "00000000-0000-0000-0000-000000000101",
+      "actorKind": "USER",
+      "action": "sample",
+      "before": [],
+      "after": [],
+      "reason": "sample",
+      "result": "SUCCESS",
+      "errorCode": "sample",
+      "effectiveAt": "2026-11-03T10:00:00.000+08:00",
+      "processedAt": "2026-11-03T10:00:00.000+08:00",
+      "traceId": "00000000-0000-0000-0000-000000000999",
+      "operationId": "00000000-0000-0000-0000-000000000700"
+    },
+    "payload": {}
+  }
+]

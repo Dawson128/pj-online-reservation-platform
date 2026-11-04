@@ -2,7 +2,7 @@
 
 Vue 3 / TypeScript + Java 21 / Spring Boot 4.1.2 + PostgreSQL 17。六人维护六模块，部署为 web 与三个后端服务。
 
-当前为 **G6 工程启动包**：工程装配、前端公共入口、构建和基础访问边界。预约、身份登录、审批、报修、邮件和审计业务均尚未实现；首页明确标记建设中。不要使用本启动包处理真实业务或宣称生产就绪。
+当前在最新 main（含 G4 契约与 SQL）上接入 G5：登录/会话、账户/院系/角色权限、全局参数，以及授权、资格、通知事实和可靠事件投递。G4 尚无真实 HTTP 提供方，预约、审批、维修等业务链及 G6 集中审计仍待各组实现。当前为开发候选，不代表生产就绪。
 
 ## 环境
 - Node **24.22.1**（见 `.nvmrc`，不使用本机旧 Node 18）、npm 9 或以上。
@@ -28,7 +28,7 @@ node infra/scripts/smoke-compose.mjs
 npm ci --no-audit --no-fund
 npm run dev
 ```
-打开 http://127.0.0.1:5173 。Vite 仅把 `/api/m1`、`m2`、`m3` 转发到 8081—8083；前端不直接访问内网接口。
+打开 https://127.0.0.1:5173（本地自签名证书） 。Vite 仅把 `/api/m1`、`m2`、`m3` 转发到 8081—8083；前端不直接访问内网接口。
 
 ## 后端开发
 正常运行需要真实 PostgreSQL 及初始化角色。可先仅启动数据库并显式发布本地端口：
@@ -46,7 +46,7 @@ approval/maintenance 以各自 jar 和 m2/m3 的独立密码启动。默认 URL 
 ```powershell
 java -jar services/reservation/target/reservation-service-0.1.0-SNAPSHOT.jar --spring.profiles.active=shell
 ```
-三个服务默认端口 8081、8082、8083，默认只绑定 127.0.0.1。`/actuator/health/liveness` 表示进程存活；不表示已通过 G5 鉴权、资源依赖或完整业务就绪检查。shell profile 禁用数据库和迁移，严禁用于发布验收。
+三个服务默认端口 8081、8082、8083，默认只绑定 127.0.0.1；approval 的 health 位于独立回环端口 18082。`/actuator/health/liveness` 表示进程存活；不表示已通过 G5 鉴权、资源依赖或完整业务就绪检查。shell profile 禁用数据库和迁移，严禁用于发布验收。
 
 ## 验证
 ```powershell
@@ -55,9 +55,13 @@ npm test
 npm run build
 mvn -B -ntp verify
 ```
-GitHub `Bootstrap CI` 会运行上述检查、构建全部容器，在独立 PostgreSQL 验证启动/角色/迁移历史，并测试网关边界。汇总检查名 `bootstrap-required`，需管理员在服务器设置为 required 才能强制阻止合并。当前只覆盖启动包；业务契约、并发、故障恢复和端到端流程由各 owner 后续补入。
+GitHub `Bootstrap CI` 会运行上述检查、构建全部容器，在独立 PostgreSQL 验证启动/角色/迁移历史，并测试网关边界。汇总检查名 `bootstrap-required`，需管理员在服务器设置为 required 才能强制阻止合并。本分支增加 g5-validation：真实 PostgreSQL 验收、G5 契约和浏览器回归。远端尚未运行本地候选，实际本机结果见迁入记录。其余模块业务测试由 owner 补入。
 
 ## 六人接入
 阅读 [模块接入指南](docs/collaboration/module-onboarding.md)、[G6 启动包计划](docs/tasks/G6-BOOTSTRAP.md) 与 [实施验证记录](docs/verification/G6-BOOTSTRAP.md)。
 
 `AGENTS.md` 是项目约束；`github-team-workflow/` 是团队协作 skill。Git 分支 `gN/<task>`，通过 PR 持续合并。首次 CODEOWNERS 及各组真实账号、相关方评审、主干保护和发布环境仍需配置，不以示例文件代替实际执行。
+
+## G5 迁入版验收与独立预览
+
+详见 [迁入范围](docs/tasks/G5-MIGRATE-main-framework.md)、[验证记录](docs/verification/G5-MIGRATE-main-framework.md)、[前端指南](apps/web/README.md)、[服务指南](services/approval/README.md) 和 [建表/迁移指南](db/README.md)。本地迁入预览默认 5177/18102/18182，独立开发库 pj_g5_migration_dev；原 G5 预览不受影响。Windows 使用 scripts/Start-CampusLocal.ps1，需传入本机 JDK 和私有数据库凭据路径。

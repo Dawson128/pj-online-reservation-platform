@@ -4,6 +4,7 @@ COPY package.json package-lock.json ./
 COPY apps/web/package.json ./apps/web/
 RUN npm ci --no-audit --no-fund
 COPY apps/web ./apps/web
+COPY contracts/config/g5 ./contracts/config/g5
 RUN npm run build
 
 FROM nginx:1.28-alpine@sha256:a8b39bd9cf0f83869a2162827a0caf6137ddf759d50a171451b335cecc87d236

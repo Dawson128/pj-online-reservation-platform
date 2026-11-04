@@ -12,3 +12,17 @@ artifacts/
 .vscode/
 *.iml
 .DS_Store
+
+# Private G5 development state, credentials and verification output
+.local/
+.secrets/
+*.key
+*.pem
+*.p12
+*.pfx
+*.jks
+application-local*.properties
+application-local*.yml
+application-local*.yaml
+*.dump
+*.backup

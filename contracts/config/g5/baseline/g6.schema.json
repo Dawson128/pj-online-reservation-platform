@@ -1,0 +1,36 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "additionalProperties": false,
+  "x-review-status": "BASELINE_PENDING_OWNER_REVIEW",
+  "x-source": "技术文档v2 §4.3、§5.5",
+  "$id": "urn:pj:g5:proposed:G6:ConfigValues:v1",
+  "title": "G6 参数基线（G5 按文档整理，待 owner 确认）",
+  "x-owner-group": "G6",
+  "required": [
+    "notificationRetryLimit",
+    "scanIntervalSeconds"
+  ],
+  "properties": {
+    "scanIntervalSeconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 30,
+      "default": 10,
+      "title": "自动检查间隔",
+      "description": "消费者从下次扫描开始采用；不改变业务截止时刻。",
+      "x-unit": "秒",
+      "x-owner-group": "G6"
+    },
+    "notificationRetryLimit": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5,
+      "default": 5,
+      "title": "通知自动重试次数",
+      "description": "不含首次发送；新受理通知保存该上限快照。",
+      "x-unit": "次",
+      "x-owner-group": "G6"
+    }
+  }
+}

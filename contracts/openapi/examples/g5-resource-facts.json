@@ -1,0 +1,81 @@
+[
+  {
+    "path": "/internal/departments/{id}",
+    "method": "get",
+    "status": "200",
+    "body": {
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000090",
+        "version": "2",
+        "createdAt": "2026-11-03T12:00:00.000+08:00",
+        "updatedAt": "2026-11-03T12:05:00.000+08:00",
+        "code": "SAMPLE",
+        "name": "示例院系",
+        "enabled": false
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    }
+  },
+  {
+    "path": "/internal/departments/{id}",
+    "method": "get",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "该接口仅允许 G4 服务调用",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/internal/accounts/qualification-facts",
+    "method": "post",
+    "status": "200",
+    "body": {
+      "data": {
+        "items": [
+          {
+            "userId": "00000000-0000-4000-8000-000000000001",
+            "departmentId": "00000000-0000-4000-8000-000000000090",
+            "enabled": false,
+            "accountVersion": "3"
+          }
+        ],
+        "checkedAt": "2026-11-03T12:05:00.000+08:00",
+        "validUntil": "2026-11-03T12:05:05.000+08:00"
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    },
+    "request": {
+      "purpose": "RESOURCE_IMPACT",
+      "roomId": "00000000-0000-4000-8000-000000000010",
+      "userIds": [
+        "00000000-0000-4000-8000-000000000001"
+      ],
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    }
+  },
+  {
+    "path": "/internal/accounts/qualification-facts",
+    "method": "post",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "该接口仅允许 G4 服务调用",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  }
+]

@@ -1,6 +1,6 @@
 import type { RouteRecordRaw } from 'vue-router'
 
-export interface NavigationItem { label: string; to: string }
+export interface NavigationItem { label: string; to: string; systemManager?: boolean }
 interface RouteModule { routes: RouteRecordRaw[] }
 interface NavigationModule { navigation: NavigationItem[] }
 
