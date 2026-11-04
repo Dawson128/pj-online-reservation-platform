@@ -74,3 +74,15 @@ G4 当前只有契约和 SQL，尚无真实 HTTP 提供方；G5 已有提供端�
 提交前补充复验：prepush-web-unit.log 的 9 项单测、prepush-web-build.log 的类型/构建通过。第一次浏览器复验 22 项通过；第 23 项已完成配置保存、原键重试、版本和数据库历史断言，随后在 page.unroute 清理网络拦截器时触发 45 秒测试超时，第 24 项因串行套件中断未执行。失败日志 prepush-web-e2e.log 和 prepush-web-e2e-failed-summary.json 保留；不删除失败证据，不增加超时或放宽断言。重跑结论另行记录，不能以之前成功覆盖本次失败。
 
 随后使用相同源码、同一构建产物和未修改的测试重新完整运行，24 项全部通过、0 失败/跳过（prepush-web-e2e-second.log，约 2.4 分钟）。前轮清理超时属一次已观察到的测试不稳定现象，尚未做专门根因修复；本次分支推送不代表已满足正式合入的全部门禁。
+
+## PR #3 容器打包修正（2026-11-04）
+
+用户已成功创建 G5 → main 的 PR #3。fa46183 的远端 web、backend 和 g5-validation 已通过；compose 在构建 web 镜像时失败，bootstrap-required 因而失败，并非 PR 创建失败或文本冲突。
+
+原因：ConfigurationPage.vue 直接导入仓库根 contracts/config/g5/config-values.schema.json；web.Dockerfile 原先仅复制 package 文件和 apps/web，容器构建目录缺少 contracts，触发 TS2307，并连带出现 TS2698。配置契约本身已在仓库，无须重建或改值。
+
+修正仅在前端镜像的 build 阶段添加 COPY contracts/config/g5 ./contracts/config/g5。最终 nginx 镜像仍仅复制 dist 与既有网关配置，业务权限、配置值、API、SQL 和后端代码不变。
+
+验证在 .local/g5-container-fix/context 隔离目录复现容器源文件布局：先不带 contracts，构建出现与远端相同的 TS2307 / TS2698；随后仅补入上述契约目录，重新运行类型检查与前端构建。该验证复用已安装依赖，本机无 Docker，不能冒称实际 Docker 镜像/Compose 已通过；远端容器运行结果以修复提交后的 Actions 为准。日志 before-fix-build.log、after-fix-build.log 与 repository-check.log 保存于 .local/g5-container-fix。
+
+本次隔离布局修正后类型/构建通过，产物逐文件 SHA-256 与已验证的本地前端 dist 完全一致；仓库结构检查通过（9 个迁移版本）。后端和业务页面源码未变，本次不重复数据库与浏览器业务验收。
