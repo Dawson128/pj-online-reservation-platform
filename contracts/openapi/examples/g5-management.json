@@ -1,0 +1,578 @@
+[
+  {
+    "path": "/api/m2/admin/accounts",
+    "method": "get",
+    "status": "200",
+    "body": {
+      "data": {
+        "items": [
+          {
+            "id": "00000000-0000-4000-8000-000000000001",
+            "version": "1",
+            "createdAt": "2026-11-02T23:00:00.000+08:00",
+            "updatedAt": "2026-11-02T23:00:00.000+08:00",
+            "userCode": "example-student",
+            "displayName": "示例学生",
+            "departmentId": "00000000-0000-4000-8000-000000000002",
+            "email": "student@example.invalid",
+            "enabled": true,
+            "mustChangePassword": false,
+            "roleIds": [
+              "00000000-0000-4000-8000-000000000003"
+            ],
+            "permissionVersion": "1"
+          }
+        ],
+        "page": 1,
+        "pageSize": 20,
+        "total": 1,
+        "asOf": "2026-11-02T23:00:00.000+08:00"
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    }
+  },
+  {
+    "path": "/api/m2/admin/accounts",
+    "method": "get",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "示例拒绝原因",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/api/m2/admin/accounts/{id}",
+    "method": "get",
+    "status": "200",
+    "body": {
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "version": "1",
+        "createdAt": "2026-11-02T23:00:00.000+08:00",
+        "updatedAt": "2026-11-02T23:00:00.000+08:00",
+        "userCode": "example-student",
+        "displayName": "示例学生",
+        "departmentId": "00000000-0000-4000-8000-000000000002",
+        "email": "student@example.invalid",
+        "enabled": true,
+        "mustChangePassword": false,
+        "roleIds": [
+          "00000000-0000-4000-8000-000000000003"
+        ],
+        "permissionVersion": "1"
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    }
+  },
+  {
+    "path": "/api/m2/admin/accounts/{id}",
+    "method": "get",
+    "status": "404",
+    "body": {
+      "code": "NOT_FOUND",
+      "message": "示例拒绝原因",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/api/m2/admin/accounts",
+    "method": "post",
+    "status": "201",
+    "body": {
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "version": "1",
+        "createdAt": "2026-11-02T23:00:00.000+08:00",
+        "updatedAt": "2026-11-02T23:00:00.000+08:00",
+        "userCode": "example-student",
+        "displayName": "示例学生",
+        "departmentId": "00000000-0000-4000-8000-000000000002",
+        "email": "student@example.invalid",
+        "enabled": true,
+        "mustChangePassword": false,
+        "roleIds": [
+          "00000000-0000-4000-8000-000000000003"
+        ],
+        "permissionVersion": "1"
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    },
+    "request": {
+      "userCode": "example-student",
+      "displayName": "示例学生",
+      "departmentId": "00000000-0000-4000-8000-000000000002",
+      "email": "student@example.invalid",
+      "roleIds": [
+        "00000000-0000-4000-8000-000000000003"
+      ],
+      "initialPassword": "Example-User-2026"
+    }
+  },
+  {
+    "path": "/api/m2/admin/accounts",
+    "method": "post",
+    "status": "409",
+    "body": {
+      "code": "DUPLICATE_CODE",
+      "message": "示例拒绝原因",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/api/m2/admin/accounts/{id}",
+    "method": "patch",
+    "status": "200",
+    "body": {
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "version": "1",
+        "createdAt": "2026-11-02T23:00:00.000+08:00",
+        "updatedAt": "2026-11-02T23:00:00.000+08:00",
+        "userCode": "example-student",
+        "displayName": "示例学生",
+        "departmentId": "00000000-0000-4000-8000-000000000002",
+        "email": "student@example.invalid",
+        "enabled": true,
+        "mustChangePassword": false,
+        "roleIds": [
+          "00000000-0000-4000-8000-000000000003"
+        ],
+        "permissionVersion": "1"
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    },
+    "request": {
+      "expectedVersion": "1",
+      "enabled": false
+    }
+  },
+  {
+    "path": "/api/m2/admin/accounts/{id}",
+    "method": "patch",
+    "status": "409",
+    "body": {
+      "code": "LAST_ADMIN_PROTECTED",
+      "message": "示例拒绝原因",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/api/m2/admin/roles",
+    "method": "get",
+    "status": "200",
+    "body": {
+      "data": {
+        "items": [
+          {
+            "id": "00000000-0000-4000-8000-000000000003",
+            "version": "1",
+            "createdAt": "2026-11-02T23:00:00.000+08:00",
+            "updatedAt": "2026-11-02T23:00:00.000+08:00",
+            "key": "STUDENT",
+            "name": "学生",
+            "builtIn": true,
+            "grants": [
+              {
+                "action": "room:read",
+                "scope": {
+                  "kind": "SCHOOL"
+                }
+              }
+            ]
+          }
+        ],
+        "page": 1,
+        "pageSize": 20,
+        "total": 1,
+        "asOf": "2026-11-02T23:00:00.000+08:00"
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    }
+  },
+  {
+    "path": "/api/m2/admin/roles",
+    "method": "get",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "示例拒绝原因",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/api/m2/admin/roles/{id}",
+    "method": "get",
+    "status": "200",
+    "body": {
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000003",
+        "version": "1",
+        "createdAt": "2026-11-02T23:00:00.000+08:00",
+        "updatedAt": "2026-11-02T23:00:00.000+08:00",
+        "key": "STUDENT",
+        "name": "学生",
+        "builtIn": true,
+        "grants": [
+          {
+            "action": "room:read",
+            "scope": {
+              "kind": "SCHOOL"
+            }
+          }
+        ]
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    }
+  },
+  {
+    "path": "/api/m2/admin/roles/{id}",
+    "method": "get",
+    "status": "404",
+    "body": {
+      "code": "NOT_FOUND",
+      "message": "示例拒绝原因",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/api/m2/admin/accounts/{id}/roles",
+    "method": "put",
+    "status": "200",
+    "body": {
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000001",
+        "version": "1",
+        "createdAt": "2026-11-02T23:00:00.000+08:00",
+        "updatedAt": "2026-11-02T23:00:00.000+08:00",
+        "userCode": "example-student",
+        "displayName": "示例学生",
+        "departmentId": "00000000-0000-4000-8000-000000000002",
+        "email": "student@example.invalid",
+        "enabled": true,
+        "mustChangePassword": false,
+        "roleIds": [
+          "00000000-0000-4000-8000-000000000003"
+        ],
+        "permissionVersion": "1"
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    },
+    "request": {
+      "expectedVersion": "1",
+      "roleIds": [
+        "00000000-0000-4000-8000-000000000003"
+      ]
+    }
+  },
+  {
+    "path": "/api/m2/admin/accounts/{id}/roles",
+    "method": "put",
+    "status": "409",
+    "body": {
+      "code": "LAST_ADMIN_PROTECTED",
+      "message": "示例拒绝原因",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/api/m2/departments",
+    "method": "get",
+    "status": "200",
+    "body": {
+      "data": {
+        "items": [
+          {
+            "id": "00000000-0000-4000-8000-000000000002",
+            "version": "1",
+            "createdAt": "2026-11-02T23:00:00.000+08:00",
+            "updatedAt": "2026-11-02T23:00:00.000+08:00",
+            "code": "EXAMPLE",
+            "name": "示例院系",
+            "enabled": true
+          }
+        ],
+        "page": 1,
+        "pageSize": 20,
+        "total": 1,
+        "asOf": "2026-11-02T23:00:00.000+08:00"
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    }
+  },
+  {
+    "path": "/api/m2/departments",
+    "method": "get",
+    "status": "400",
+    "body": {
+      "code": "VALIDATION_ERROR",
+      "message": "示例拒绝原因",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/api/m2/admin/departments",
+    "method": "post",
+    "status": "201",
+    "body": {
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "version": "1",
+        "createdAt": "2026-11-02T23:00:00.000+08:00",
+        "updatedAt": "2026-11-02T23:00:00.000+08:00",
+        "code": "EXAMPLE",
+        "name": "示例院系",
+        "enabled": true
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    },
+    "request": {
+      "code": "EXAMPLE",
+      "name": "示例院系"
+    }
+  },
+  {
+    "path": "/api/m2/admin/departments",
+    "method": "post",
+    "status": "409",
+    "body": {
+      "code": "DUPLICATE_CODE",
+      "message": "示例拒绝原因",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/api/m2/admin/departments/{id}",
+    "method": "patch",
+    "status": "200",
+    "body": {
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000002",
+        "version": "1",
+        "createdAt": "2026-11-02T23:00:00.000+08:00",
+        "updatedAt": "2026-11-02T23:00:00.000+08:00",
+        "code": "EXAMPLE",
+        "name": "示例院系",
+        "enabled": true
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    },
+    "request": {
+      "expectedVersion": "1",
+      "enabled": false
+    }
+  },
+  {
+    "path": "/api/m2/admin/departments/{id}",
+    "method": "patch",
+    "status": "409",
+    "body": {
+      "code": "VERSION_CONFLICT",
+      "message": "示例拒绝原因",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": "2",
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/api/m2/admin/roles",
+    "method": "post",
+    "status": "201",
+    "body": {
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000080",
+        "version": "1",
+        "createdAt": "2026-11-03T01:00:00.000+08:00",
+        "updatedAt": "2026-11-03T01:00:00.000+08:00",
+        "key": "CUSTOM_VIEWER",
+        "name": "空间查看人员",
+        "builtIn": false,
+        "grants": [
+          {
+            "action": "room:read",
+            "scope": {
+              "kind": "SCHOOL"
+            }
+          }
+        ]
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    },
+    "request": {
+      "key": "CUSTOM_VIEWER",
+      "name": "空间查看人员",
+      "grants": [
+        {
+          "action": "room:read",
+          "scope": {
+            "kind": "SCHOOL"
+          }
+        }
+      ]
+    }
+  },
+  {
+    "path": "/api/m2/admin/roles",
+    "method": "post",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "需要系统管理权限",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/api/m2/admin/roles/{id}",
+    "method": "patch",
+    "status": "200",
+    "body": {
+      "data": {
+        "id": "00000000-0000-4000-8000-000000000080",
+        "version": "2",
+        "createdAt": "2026-11-03T01:00:00.000+08:00",
+        "updatedAt": "2026-11-03T01:00:00.000+08:00",
+        "key": "CUSTOM_VIEWER",
+        "name": "空间查看",
+        "builtIn": false,
+        "grants": []
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    },
+    "request": {
+      "expectedVersion": "1",
+      "name": "空间查看",
+      "grants": []
+    }
+  },
+  {
+    "path": "/api/m2/admin/roles/{id}",
+    "method": "patch",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "需要系统管理权限",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/api/m2/admin/permissions",
+    "method": "get",
+    "status": "200",
+    "body": {
+      "data": {
+        "items": [
+          {
+            "action": "room:read",
+            "description": "查看开放空间",
+            "scopeKinds": [
+              "SCHOOL",
+              "DEPARTMENT",
+              "ROOM"
+            ],
+            "ownerGroup": "G4"
+          }
+        ]
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    }
+  },
+  {
+    "path": "/api/m2/admin/permissions",
+    "method": "get",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "需要系统管理权限",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  }
+]

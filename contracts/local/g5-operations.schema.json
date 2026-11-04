@@ -1,0 +1,1133 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "createdAt",
+        "updatedAt",
+        "ownerGroup",
+        "source",
+        "roomId",
+        "scopeKind",
+        "category",
+        "eventId",
+        "actorId",
+        "operationId",
+        "status",
+        "phase",
+        "acceptedAt",
+        "attemptCount",
+        "nextRetryAt",
+        "error",
+        "needsAttention",
+        "result",
+        "statusUrl",
+        "allowedActions"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "version": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "ownerGroup": {
+          "const": "G5"
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "id"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "PERSONAL",
+                "WHOLE",
+                "REPAIR",
+                "ADMIN",
+                "ACCOUNT",
+                "CONFIG",
+                "SYSTEM"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "roomId": {
+          "type": "null"
+        },
+        "scopeKind": {
+          "const": "SYSTEM"
+        },
+        "category": {
+          "const": "OTHER"
+        },
+        "eventId": {
+          "type": "null"
+        },
+        "actorId": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "uuid"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "operationId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "status": {
+          "enum": [
+            "PENDING",
+            "RUNNING",
+            "RETRY_WAIT",
+            "SUCCEEDED",
+            "BLOCKED"
+          ]
+        },
+        "phase": {
+          "const": "NONE"
+        },
+        "acceptedAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "attemptCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "nextRetryAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "code",
+                "message",
+                "traceId",
+                "details"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "message": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "traceId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "details": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "fields",
+                    "conflicts",
+                    "currentVersion",
+                    "operationId",
+                    "retryAfterSeconds"
+                  ],
+                  "properties": {
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "field",
+                          "reason"
+                        ],
+                        "properties": {
+                          "field": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          }
+                        }
+                      },
+                      "maxItems": 100
+                    },
+                    "conflicts": {
+                      "type": "array",
+                      "items": {},
+                      "maxItems": 100
+                    },
+                    "currentVersion": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]{0,18}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "operationId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "retryAfterSeconds": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 2147483647
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "needsAttention": {
+          "type": "boolean"
+        },
+        "result": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "outcome",
+                "record",
+                "resultVersion",
+                "effectiveAt"
+              ],
+              "properties": {
+                "outcome": {
+                  "enum": [
+                    "APPLIED",
+                    "ALREADY_APPLIED",
+                    "TERMINAL",
+                    "EXPIRED",
+                    "REJECTED"
+                  ]
+                },
+                "record": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "type",
+                    "id"
+                  ],
+                  "properties": {
+                    "type": {
+                      "enum": [
+                        "PERSONAL",
+                        "WHOLE",
+                        "REPAIR",
+                        "ADMIN",
+                        "ACCOUNT",
+                        "CONFIG",
+                        "SYSTEM"
+                      ]
+                    },
+                    "id": {
+                      "type": "string",
+                      "format": "uuid"
+                    }
+                  }
+                },
+                "resultVersion": {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]{0,18}$"
+                },
+                "effectiveAt": {
+                  "anyOf": [
+                    {
+                      "type": "string",
+                      "format": "date-time"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "statusUrl": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "allowedActions": {
+          "type": "array",
+          "items": {
+            "enum": [
+              "operation:recover"
+            ]
+          },
+          "maxItems": 64
+        }
+      }
+    },
+    "Page": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "items",
+        "page",
+        "pageSize",
+        "total",
+        "asOf"
+      ],
+      "properties": {
+        "items": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "version",
+              "createdAt",
+              "updatedAt",
+              "ownerGroup",
+              "source",
+              "roomId",
+              "scopeKind",
+              "category",
+              "eventId",
+              "actorId",
+              "operationId",
+              "status",
+              "phase",
+              "acceptedAt",
+              "attemptCount",
+              "nextRetryAt",
+              "error",
+              "needsAttention",
+              "result",
+              "statusUrl",
+              "allowedActions"
+            ],
+            "properties": {
+              "id": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "version": {
+                "type": "string",
+                "pattern": "^[1-9][0-9]{0,18}$"
+              },
+              "createdAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "updatedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "ownerGroup": {
+                "const": "G5"
+              },
+              "source": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "type",
+                  "id"
+                ],
+                "properties": {
+                  "type": {
+                    "enum": [
+                      "PERSONAL",
+                      "WHOLE",
+                      "REPAIR",
+                      "ADMIN",
+                      "ACCOUNT",
+                      "CONFIG",
+                      "SYSTEM"
+                    ]
+                  },
+                  "id": {
+                    "type": "string",
+                    "format": "uuid"
+                  }
+                }
+              },
+              "roomId": {
+                "type": "null"
+              },
+              "scopeKind": {
+                "const": "SYSTEM"
+              },
+              "category": {
+                "const": "OTHER"
+              },
+              "eventId": {
+                "type": "null"
+              },
+              "actorId": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "uuid"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "operationId": {
+                "type": "string",
+                "format": "uuid"
+              },
+              "status": {
+                "enum": [
+                  "PENDING",
+                  "RUNNING",
+                  "RETRY_WAIT",
+                  "SUCCEEDED",
+                  "BLOCKED"
+                ]
+              },
+              "phase": {
+                "const": "NONE"
+              },
+              "acceptedAt": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "attemptCount": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 2147483647
+              },
+              "nextRetryAt": {
+                "anyOf": [
+                  {
+                    "type": "string",
+                    "format": "date-time"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "error": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "code",
+                      "message",
+                      "traceId",
+                      "details"
+                    ],
+                    "properties": {
+                      "code": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 80
+                      },
+                      "message": {
+                        "type": "string",
+                        "minLength": 1,
+                        "maxLength": 300
+                      },
+                      "traceId": {
+                        "type": "string",
+                        "format": "uuid"
+                      },
+                      "details": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "fields",
+                          "conflicts",
+                          "currentVersion",
+                          "operationId",
+                          "retryAfterSeconds"
+                        ],
+                        "properties": {
+                          "fields": {
+                            "type": "array",
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "field",
+                                "reason"
+                              ],
+                              "properties": {
+                                "field": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 300
+                                },
+                                "reason": {
+                                  "type": "string",
+                                  "minLength": 1,
+                                  "maxLength": 300
+                                }
+                              }
+                            },
+                            "maxItems": 100
+                          },
+                          "conflicts": {
+                            "type": "array",
+                            "items": {},
+                            "maxItems": 100
+                          },
+                          "currentVersion": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "pattern": "^[1-9][0-9]{0,18}$"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "operationId": {
+                            "anyOf": [
+                              {
+                                "type": "string",
+                                "format": "uuid"
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          },
+                          "retryAfterSeconds": {
+                            "anyOf": [
+                              {
+                                "type": "integer",
+                                "minimum": 0,
+                                "maximum": 2147483647
+                              },
+                              {
+                                "type": "null"
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "needsAttention": {
+                "type": "boolean"
+              },
+              "result": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                      "outcome",
+                      "record",
+                      "resultVersion",
+                      "effectiveAt"
+                    ],
+                    "properties": {
+                      "outcome": {
+                        "enum": [
+                          "APPLIED",
+                          "ALREADY_APPLIED",
+                          "TERMINAL",
+                          "EXPIRED",
+                          "REJECTED"
+                        ]
+                      },
+                      "record": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "type",
+                          "id"
+                        ],
+                        "properties": {
+                          "type": {
+                            "enum": [
+                              "PERSONAL",
+                              "WHOLE",
+                              "REPAIR",
+                              "ADMIN",
+                              "ACCOUNT",
+                              "CONFIG",
+                              "SYSTEM"
+                            ]
+                          },
+                          "id": {
+                            "type": "string",
+                            "format": "uuid"
+                          }
+                        }
+                      },
+                      "resultVersion": {
+                        "type": "string",
+                        "pattern": "^[1-9][0-9]{0,18}$"
+                      },
+                      "effectiveAt": {
+                        "anyOf": [
+                          {
+                            "type": "string",
+                            "format": "date-time"
+                          },
+                          {
+                            "type": "null"
+                          }
+                        ]
+                      }
+                    }
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "statusUrl": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 300
+              },
+              "allowedActions": {
+                "type": "array",
+                "items": {
+                  "enum": [
+                    "operation:recover"
+                  ]
+                },
+                "maxItems": 64
+              }
+            }
+          },
+          "maxItems": 100
+        },
+        "page": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 1000000
+        },
+        "pageSize": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 100
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "asOf": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "Metrics": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "asOf",
+        "operations",
+        "notifications"
+      ],
+      "properties": {
+        "asOf": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "operations": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "pendingCount",
+                "attentionCount",
+                "outboxCount",
+                "oldestOutboxAgeSeconds",
+                "oldestPendingAgeSeconds",
+                "oldestPendingRef"
+              ],
+              "properties": {
+                "pendingCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2147483647
+                },
+                "attentionCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2147483647
+                },
+                "outboxCount": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2147483647
+                },
+                "oldestOutboxAgeSeconds": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2147483647
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "oldestPendingAgeSeconds": {
+                  "anyOf": [
+                    {
+                      "type": "integer",
+                      "minimum": 0,
+                      "maximum": 2147483647
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "oldestPendingRef": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "additionalProperties": false,
+                      "required": [
+                        "kind",
+                        "id",
+                        "since",
+                        "detailUrl"
+                      ],
+                      "properties": {
+                        "kind": {
+                          "enum": [
+                            "OPERATION",
+                            "OUTBOX"
+                          ]
+                        },
+                        "id": {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        "since": {
+                          "type": "string",
+                          "format": "date-time"
+                        },
+                        "detailUrl": {
+                          "type": "string",
+                          "minLength": 1,
+                          "maxLength": 300
+                        }
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "notifications": {
+          "type": "null"
+        }
+      }
+    },
+    "OutboxReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "eventId",
+        "source",
+        "roomId",
+        "ownerGroup",
+        "destination",
+        "occurredAt",
+        "acceptedAt",
+        "attemptCount",
+        "nextRetryAt",
+        "error"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "eventId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "type",
+            "id"
+          ],
+          "properties": {
+            "type": {
+              "enum": [
+                "PERSONAL",
+                "WHOLE",
+                "REPAIR",
+                "ADMIN",
+                "ACCOUNT",
+                "CONFIG",
+                "SYSTEM"
+              ]
+            },
+            "id": {
+              "type": "string",
+              "format": "uuid"
+            }
+          }
+        },
+        "roomId": {
+          "type": "null"
+        },
+        "ownerGroup": {
+          "const": "G5"
+        },
+        "destination": {
+          "const": "G6"
+        },
+        "occurredAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "acceptedAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "attemptCount": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 2147483647
+        },
+        "nextRetryAt": {
+          "anyOf": [
+            {
+              "type": "string",
+              "format": "date-time"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "error": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "code",
+                "message",
+                "traceId",
+                "details"
+              ],
+              "properties": {
+                "code": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 80
+                },
+                "message": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 300
+                },
+                "traceId": {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                "details": {
+                  "type": "object",
+                  "additionalProperties": false,
+                  "required": [
+                    "fields",
+                    "conflicts",
+                    "currentVersion",
+                    "operationId",
+                    "retryAfterSeconds"
+                  ],
+                  "properties": {
+                    "fields": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "field",
+                          "reason"
+                        ],
+                        "properties": {
+                          "field": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          },
+                          "reason": {
+                            "type": "string",
+                            "minLength": 1,
+                            "maxLength": 300
+                          }
+                        }
+                      },
+                      "maxItems": 100
+                    },
+                    "conflicts": {
+                      "type": "array",
+                      "items": {},
+                      "maxItems": 100
+                    },
+                    "currentVersion": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "pattern": "^[1-9][0-9]{0,18}$"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "operationId": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "format": "uuid"
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    },
+                    "retryAfterSeconds": {
+                      "anyOf": [
+                        {
+                          "type": "integer",
+                          "minimum": 0,
+                          "maximum": 2147483647
+                        },
+                        {
+                          "type": "null"
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      }
+    },
+    "RecoveryBody": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "expectedVersion",
+        "reason"
+      ],
+      "properties": {
+        "expectedVersion": {
+          "type": "string",
+          "pattern": "^[1-9][0-9]{0,18}$"
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      }
+    },
+    "Error": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "code",
+        "message",
+        "traceId",
+        "details"
+      ],
+      "properties": {
+        "code": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80
+        },
+        "message": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 300
+        },
+        "traceId": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "details": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fields",
+            "conflicts",
+            "currentVersion",
+            "operationId",
+            "retryAfterSeconds"
+          ],
+          "properties": {
+            "fields": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "field",
+                  "reason"
+                ],
+                "properties": {
+                  "field": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  },
+                  "reason": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 300
+                  }
+                }
+              },
+              "maxItems": 100
+            },
+            "conflicts": {
+              "type": "array",
+              "items": {},
+              "maxItems": 100
+            },
+            "currentVersion": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^[1-9][0-9]{0,18}$"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "operationId": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "uuid"
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "retryAfterSeconds": {
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 2147483647
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          }
+        }
+      }
+    }
+  }
+}

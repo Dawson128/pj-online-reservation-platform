@@ -1,0 +1,181 @@
+[
+  {
+    "path": "/api/m2/auth/login",
+    "method": "post",
+    "status": "200",
+    "body": {
+      "data": {
+        "principal": {
+          "userId": "10000000-0000-0000-0000-000000000001",
+          "displayName": "示例管理员",
+          "deptId": "10000000-0000-0000-0000-000000000002",
+          "accountVersion": "1",
+          "permissionVersion": "1",
+          "grants": [],
+          "mustChangePassword": false,
+          "expiresAt": "2026-11-02T23:00:00.000+08:00"
+        },
+        "csrfToken": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+      },
+      "traceId": "10000000-0000-0000-0000-000000000003"
+    }
+  },
+  {
+    "path": "/api/m2/auth/login",
+    "method": "post",
+    "status": "401",
+    "body": {
+      "code": "UNAUTHENTICATED",
+      "message": "登录凭据无效，请重新登录",
+      "traceId": "10000000-0000-0000-0000-000000000003",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/api/m2/auth/logout",
+    "method": "post",
+    "status": "200",
+    "body": {
+      "data": {
+        "revoked": true
+      },
+      "traceId": "10000000-0000-0000-0000-000000000003"
+    }
+  },
+  {
+    "path": "/api/m2/auth/logout",
+    "method": "post",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "安全校验失败",
+      "traceId": "10000000-0000-0000-0000-000000000003",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/api/m2/auth/me",
+    "method": "get",
+    "status": "200",
+    "body": {
+      "data": {
+        "userId": "10000000-0000-0000-0000-000000000001",
+        "displayName": "示例管理员",
+        "deptId": "10000000-0000-0000-0000-000000000002",
+        "accountVersion": "2",
+        "permissionVersion": "1",
+        "grants": [
+          {
+            "action": "system:manage",
+            "scope": {
+              "kind": "SYSTEM"
+            }
+          }
+        ],
+        "mustChangePassword": false,
+        "expiresAt": "2026-11-02T23:00:00.000+08:00"
+      },
+      "traceId": "10000000-0000-0000-0000-000000000003"
+    }
+  },
+  {
+    "path": "/api/m2/auth/me",
+    "method": "get",
+    "status": "401",
+    "body": {
+      "code": "UNAUTHENTICATED",
+      "message": "登录凭据无效，请重新登录",
+      "traceId": "10000000-0000-0000-0000-000000000003",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/api/m2/auth/change-password",
+    "method": "post",
+    "status": "200",
+    "body": {
+      "data": {
+        "passwordChanged": true,
+        "reloginRequired": true
+      },
+      "traceId": "10000000-0000-0000-0000-000000000003"
+    }
+  },
+  {
+    "path": "/api/m2/auth/change-password",
+    "method": "post",
+    "status": "403",
+    "body": {
+      "code": "CURRENT_PASSWORD_INVALID",
+      "message": "当前密码不正确",
+      "traceId": "10000000-0000-0000-0000-000000000003",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/internal/auth/introspect",
+    "method": "post",
+    "status": "200",
+    "body": {
+      "data": {
+        "userId": "10000000-0000-0000-0000-000000000001",
+        "displayName": "示例管理员",
+        "deptId": "10000000-0000-0000-0000-000000000002",
+        "accountVersion": "2",
+        "permissionVersion": "1",
+        "grants": [
+          {
+            "action": "system:manage",
+            "scope": {
+              "kind": "SYSTEM"
+            }
+          }
+        ],
+        "mustChangePassword": false,
+        "expiresAt": "2026-11-02T23:00:00.000+08:00"
+      },
+      "traceId": "10000000-0000-0000-0000-000000000003"
+    }
+  },
+  {
+    "path": "/internal/auth/introspect",
+    "method": "post",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "服务身份无效或未配置",
+      "traceId": "10000000-0000-0000-0000-000000000003",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  }
+]

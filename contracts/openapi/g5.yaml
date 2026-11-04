@@ -1,0 +1,4698 @@
+openapi: 3.1.0
+info:
+  title: G5 authentication and directory management API
+  version: 0.8.0
+  description: Implemented P01-P19, I01-I10 and L01/L02/L03/L06 provider logic. G5 scope, eligibility, candidate and notification
+    policy use real current identity state; external G4 clients fail closed. Real G1-G4/G6 consumers, SMTP and cross-service
+    business integration remain pending. G5-L04/L05/L07 and reliable G5-owned outbox delivery are provided; local operation
+    DTOs live in contracts/local/g5-operations.schema.json; G6 receipt provider review remains pending.
+paths:
+  /api/m2/auth/login:
+    post:
+      operationId: G5-P01
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - account
+              - password
+              properties:
+                account:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                password:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                  writeOnly: true
+      responses:
+        '200':
+          description: Login accepted; Set-Cookie PJ_SESSION is Secure, HttpOnly, SameSite=Lax, Path=/, Max-Age=28800.
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                - data
+                - traceId
+                additionalProperties: false
+                properties:
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required:
+                    - principal
+                    - csrfToken
+                    properties:
+                      principal:
+                        $ref: '#/components/schemas/Principal'
+                      csrfToken:
+                        type: string
+                        minLength: 32
+                        maxLength: 128
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '429':
+          $ref: '#/components/responses/Limited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/m2/auth/logout:
+    post:
+      operationId: G5-P02
+      description: Valid sessions require X-CSRF-Token; missing/invalid/revoked sessions return success. Clear PJ_SESSION.
+      security:
+      - session: []
+      parameters:
+      - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        $ref: '#/components/requestBodies/Empty'
+      responses:
+        '200':
+          description: Session revoked or already absent; Set-Cookie clears the session.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required:
+                    - revoked
+                    properties:
+                      revoked:
+                        const: true
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/m2/auth/me:
+    get:
+      operationId: G5-P03
+      security:
+      - session: []
+      responses:
+        '200':
+          $ref: '#/components/responses/Identity'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/m2/auth/change-password:
+    post:
+      operationId: G5-P04
+      description: Validate CSRF and current password; update account version and revoke every session atomically. No persistent
+        idempotency key or password caching.
+      security:
+      - session: []
+      parameters:
+      - $ref: '#/components/parameters/Csrf'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - currentPassword
+              - newPassword
+              - expectedVersion
+              properties:
+                currentPassword:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                  writeOnly: true
+                newPassword:
+                  type: string
+                  minLength: 8
+                  maxLength: 24
+                  writeOnly: true
+                expectedVersion:
+                  $ref: '#/components/schemas/Version'
+      responses:
+        '200':
+          description: Password changed, every old session revoked, cookie cleared; log in again.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required:
+                    - passwordChanged
+                    - reloginRequired
+                    properties:
+                      passwordChanged:
+                        const: true
+                      reloginRequired:
+                        const: true
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '429':
+          $ref: '#/components/responses/Limited'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /internal/auth/introspect:
+    post:
+      operationId: G5-I01
+      description: G1/G3/G4/G6 each use a distinct service token. Principal includes current grants immediately after login;
+        no mandatory first-password change. Not a public gateway route.
+      security:
+      - service: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - sessionToken
+              properties:
+                sessionToken:
+                  type: string
+                  minLength: 32
+                  maxLength: 256
+                  writeOnly: true
+      responses:
+        '200':
+          $ref: '#/components/responses/Identity'
+        '400':
+          $ref: '#/components/responses/Invalid'
+        '401':
+          $ref: '#/components/responses/Unauthenticated'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '503':
+          $ref: '#/components/responses/Unavailable'
+  /api/m2/admin/accounts:
+    get:
+      operationId: G5-P05
+      security:
+      - session: []
+      description: Requires current system:manage grant in SYSTEM scope. Account changes revoke all target sessions; last
+        effective administrator is protected.
+      parameters:
+      - &id002
+        name: page
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+          default: 1
+      - &id003
+        name: pageSize
+        in: query
+        required: false
+        schema:
+          type: integer
+          minimum: 1
+          maximum: 100
+          default: 20
+      - &id004
+        name: keyword
+        in: query
+        required: false
+        schema:
+          type: string
+          minLength: 1
+          maxLength: 100
+      - name: enabled
+        in: query
+        required: false
+        schema:
+          type: boolean
+      - name: departmentId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      - name: roleId
+        in: query
+        required: false
+        schema:
+          $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AccountPage'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      operationId: G5-P07
+      security:
+      - session: []
+      description: Requires current system:manage grant in SYSTEM scope. Account changes revoke all target sessions; last
+        effective administrator is protected.
+      parameters:
+      - $ref: '#/components/parameters/ManagementCsrf'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: &id001
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Account'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '200':
+          description: Idempotent replay; cached result within 24h, current created object after response expiry.
+          content:
+            application/json:
+              schema: *id001
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - userCode
+              - displayName
+              - departmentId
+              - email
+              - initialPassword
+              - roleIds
+              properties:
+                userCode:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                displayName:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                departmentId:
+                  $ref: '#/components/schemas/Id'
+                email:
+                  type: string
+                  minLength: 1
+                  maxLength: 254
+                  format: email
+                initialPassword:
+                  type: string
+                  minLength: 8
+                  maxLength: 24
+                  writeOnly: true
+                roleIds: &id006
+                  type: array
+                  items:
+                    $ref: '#/components/schemas/Id'
+                  maxItems: 50
+  /api/m2/admin/accounts/{id}:
+    get:
+      operationId: G5-P06
+      security:
+      - session: []
+      description: Requires current system:manage grant in SYSTEM scope. Account changes revoke all target sessions; last
+        effective administrator is protected.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Account'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      operationId: G5-P08
+      security:
+      - session: []
+      description: Requires current system:manage grant in SYSTEM scope. Account changes revoke all target sessions; last
+        effective administrator is protected.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/ManagementCsrf'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Account'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - expectedVersion
+              properties:
+                expectedVersion:
+                  $ref: '#/components/schemas/Version'
+                displayName:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                departmentId:
+                  $ref: '#/components/schemas/Id'
+                email:
+                  type: string
+                  minLength: 1
+                  maxLength: 254
+                  format: email
+                enabled:
+                  type: boolean
+              minProperties: 2
+  /api/m2/admin/roles:
+    get:
+      operationId: G5-P09
+      security:
+      - session: []
+      description: Requires current system:manage grant in SYSTEM scope. Account changes revoke all target sessions; last
+        effective administrator is protected.
+      parameters:
+      - *id002
+      - *id003
+      - *id004
+      - name: builtIn
+        in: query
+        required: false
+        schema:
+          type: boolean
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/RolePage'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    post:
+      operationId: G5-P11
+      security:
+      - session: []
+      description: Requires SYSTEM/system:manage. Full grant replacement; key/builtIn immutable. Unknown action/scope/object
+        400; unavailable G4 503 SCOPE_FACTS_UNAVAILABLE. Protect last administrator. Updates revoke all bound account sessions.
+        Same-key replay precedes remote validation.
+      parameters:
+      - $ref: '#/components/parameters/ManagementCsrf'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Role'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Role'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - key
+              - name
+              - grants
+              properties:
+                key:
+                  type: string
+                  minLength: 1
+                  maxLength: 60
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                grants: &id005
+                  type: array
+                  maxItems: 1000
+                  items:
+                    type: object
+                    additionalProperties: false
+                    required:
+                    - action
+                    - scope
+                    properties:
+                      action:
+                        type: string
+                        minLength: 1
+                        maxLength: 80
+                      scope:
+                        oneOf:
+                        - type: object
+                          additionalProperties: false
+                          required:
+                          - kind
+                          properties:
+                            kind:
+                              const: SCHOOL
+                        - type: object
+                          additionalProperties: false
+                          required:
+                          - kind
+                          properties:
+                            kind:
+                              const: SYSTEM
+                        - type: object
+                          additionalProperties: false
+                          required:
+                          - kind
+                          - departmentId
+                          properties:
+                            kind:
+                              const: DEPARTMENT
+                            departmentId:
+                              $ref: '#/components/schemas/Id'
+                        - type: object
+                          additionalProperties: false
+                          required:
+                          - kind
+                          - roomId
+                          properties:
+                            kind:
+                              const: ROOM
+                            roomId:
+                              $ref: '#/components/schemas/Id'
+  /api/m2/admin/roles/{id}:
+    get:
+      operationId: G5-P10
+      security:
+      - session: []
+      description: Requires current system:manage grant in SYSTEM scope. Account changes revoke all target sessions; last
+        effective administrator is protected.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Role'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      operationId: G5-P12
+      security:
+      - session: []
+      description: Requires SYSTEM/system:manage. Full grant replacement; key/builtIn immutable. Unknown action/scope/object
+        400; unavailable G4 503 SCOPE_FACTS_UNAVAILABLE. Protect last administrator. Updates revoke all bound account sessions.
+        Same-key replay precedes remote validation.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/ManagementCsrf'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Role'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - expectedVersion
+              - name
+              - grants
+              properties:
+                expectedVersion:
+                  $ref: '#/components/schemas/Version'
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                grants: *id005
+  /api/m2/admin/accounts/{id}/roles:
+    put:
+      operationId: G5-P13
+      security:
+      - session: []
+      description: Requires current system:manage grant in SYSTEM scope. Account changes revoke all target sessions; last
+        effective administrator is protected.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/ManagementCsrf'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Account'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - expectedVersion
+              - roleIds
+              properties:
+                expectedVersion:
+                  $ref: '#/components/schemas/Version'
+                roleIds: *id006
+  /api/m2/departments:
+    get:
+      operationId: G5-P15
+      security:
+      - session: []
+      description: Valid authenticated session.
+      parameters:
+      - *id002
+      - *id003
+      - *id004
+      - name: enabled
+        in: query
+        required: false
+        schema:
+          type: boolean
+          default: true
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/DepartmentPage'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/m2/admin/departments:
+    post:
+      operationId: G5-P16
+      security:
+      - session: []
+      description: Requires current system:manage grant in SYSTEM scope. Account changes revoke all target sessions; last
+        effective administrator is protected.
+      parameters:
+      - $ref: '#/components/parameters/ManagementCsrf'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '201':
+          description: Created
+          content:
+            application/json:
+              schema: &id007
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Department'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '200':
+          description: Idempotent replay; cached result within 24h, current created object after response expiry.
+          content:
+            application/json:
+              schema: *id007
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - code
+              - name
+              properties:
+                code:
+                  type: string
+                  minLength: 1
+                  maxLength: 40
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+  /api/m2/admin/departments/{id}:
+    patch:
+      operationId: G5-P17
+      security:
+      - session: []
+      description: Requires current system:manage grant in SYSTEM scope. Account changes revoke all target sessions; last
+        effective administrator is protected.
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+      - $ref: '#/components/parameters/ManagementCsrf'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Department'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - expectedVersion
+              properties:
+                expectedVersion:
+                  $ref: '#/components/schemas/Version'
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+                enabled:
+                  type: boolean
+              minProperties: 2
+  /api/m2/admin/permissions:
+    get:
+      operationId: G5-P14
+      security:
+      - session: []
+      description: Closed catalog; current SYSTEM/system:manage required. No query parameters.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required:
+                    - items
+                    properties:
+                      items:
+                        type: array
+                        minItems: 1
+                        maxItems: 64
+                        items:
+                          $ref: '#/components/schemas/PermissionDescriptor'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /api/m2/admin/config:
+    get:
+      operationId: G5-P18
+      security:
+      - session: []
+      description: Current SYSTEM/system:manage required. Read the persisted current configuration without cache/fallback.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Config'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    patch:
+      operationId: G5-P19
+      security:
+      - session: []
+      description: Full replacement of all five integer values. Current SYSTEM/system:manage, CSRF, expectedVersion and Idempotency-Key
+        required. Version conflict 409. Unchanged values return the existing Config without increment/event; the request result
+        is still persisted. Changed values create a DB-clock effective time and version/history/ConfigChanged/outbox in one
+        transaction; no existing business records or sessions are rewritten. Same-key replay returns original result; read
+        current Config after replay.
+      parameters:
+      - $ref: '#/components/parameters/ManagementCsrf'
+      - $ref: '#/components/parameters/IdempotencyKey'
+      responses:
+        '200':
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Config'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - expectedVersion
+              - values
+              properties:
+                expectedVersion:
+                  $ref: '#/components/schemas/Version'
+                values:
+                  $ref: '#/components/schemas/ConfigValues'
+  /internal/config:
+    get:
+      operationId: G5-I07
+      security:
+      - service: []
+      description: Service identity G1/G2/G3/G4/G6; no browser session needed. Always reads persisted current version; failure
+        503, never stale/default fallback. G2 normally uses L03. No query/body.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Config'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /internal/departments/{id}:
+    get:
+      operationId: G5-I08
+      security:
+      - service: []
+      description: Only G4 service identity. Existing disabled departments also return 200; unknown ID 404. No user session,
+        query or request body. Returns Department only, never accounts. Current read failures 503, no stale/default fallback.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Department'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      parameters:
+      - name: id
+        in: path
+        required: true
+        schema:
+          $ref: '#/components/schemas/Id'
+  /internal/accounts/qualification-facts:
+    post:
+      operationId: G5-I09
+      security:
+      - service: []
+      description: Only G4 service identity for RESOURCE_IMPACT; no user session, CSRF or idempotency key. G4 must bind this
+        to an accepted resource change. G5 validates roomId format, not room existence or business approval. One current read
+        snapshot; all input IDs (including duplicates) return facts in the same order. Any missing account fails the whole
+        request 404. Disabled accounts return enabled=false. checkedAt is DB-clock completion time, validUntil=checkedAt+5
+        seconds. No positive cross-request cache or partial/stale fallback. Valid traceId is propagated to the response.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/QualificationFacts'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - purpose
+              - roomId
+              - userIds
+              - traceId
+              properties:
+                purpose:
+                  const: RESOURCE_IMPACT
+                roomId:
+                  $ref: '#/components/schemas/Id'
+                userIds:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    $ref: '#/components/schemas/Id'
+                traceId:
+                  $ref: '#/components/schemas/Id'
+  /internal/authorization/check:
+    post:
+      operationId: G5-I10
+      security:
+      - service: []
+      description: G1/G3/G4/G6 and X-Actor-Session; actor/version bound. ROOM via G4-I08, SYSTEM no network; no partial/stale
+        fallback.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/AuthorizationBatch'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - actorUserId
+              - accountVersion
+              - permissionVersion
+              - checks
+              properties:
+                actorUserId: &id009
+                  $ref: '#/components/schemas/Id'
+                accountVersion: &id008
+                  $ref: '#/components/schemas/Version'
+                permissionVersion: *id008
+                checks:
+                  type: array
+                  minItems: 1
+                  maxItems: 100
+                  items:
+                    $ref: '#/components/schemas/AuthorizationQuery'
+      parameters:
+      - name: X-Actor-Session
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          maxLength: 256
+  /internal/authorization/eligibility:
+    post:
+      operationId: G5-I02
+      security:
+      - service: []
+      description: G2/G4 FINAL_APPROVAL+WHOLE+room:apply or G3 REPAIR_START+REPAIR+workorder:repair. No user session; final
+        qualification facts last five seconds.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Eligibility'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - subjectId
+              - roomId
+              - action
+              - source
+              - operationId
+              - purpose
+              properties:
+                subjectId: *id009
+                roomId: *id009
+                action:
+                  enum:
+                  - room:apply
+                  - workorder:repair
+                source:
+                  type: object
+                  additionalProperties: false
+                  required:
+                  - type
+                  - id
+                  properties:
+                    type:
+                      enum:
+                      - PERSONAL
+                      - WHOLE
+                      - REPAIR
+                      - ADMIN
+                      - ACCOUNT
+                      - CONFIG
+                      - SYSTEM
+                    id: *id009
+                operationId: *id009
+                purpose:
+                  enum:
+                  - FINAL_APPROVAL
+                  - REPAIR_START
+  /internal/maintenance/assignee-candidates:
+    post:
+      operationId: G5-I03
+      security:
+      - service: []
+      description: Only G3 with X-Actor-Session; verifies workorder:assign scope then filters active workorder:repair candidates
+        before count/page; no email.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/CandidatePage'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - actorUserId
+              - roomId
+              properties:
+                actorUserId: *id009
+                roomId: *id009
+                page:
+                  type: integer
+                  minimum: 1
+                  maximum: 1000000
+                  default: 1
+                pageSize:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 20
+                keyword:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+      parameters:
+      - name: X-Actor-Session
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          maxLength: 256
+  /internal/maintenance/assignee-eligibility:
+    post:
+      operationId: G5-I04
+      security:
+      - service: []
+      description: Only G3 with X-Actor-Session; independently checks actor assignment scope and target repair qualification.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Eligibility'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - actorUserId
+              - assigneeId
+              - roomId
+              properties:
+                actorUserId: *id009
+                assigneeId: *id009
+                roomId: *id009
+      parameters:
+      - name: X-Actor-Session
+        in: header
+        required: true
+        schema:
+          type: string
+          minLength: 32
+          maxLength: 256
+  /internal/notification-recipients/query:
+    post:
+      operationId: G5-I05
+      security:
+      - service: []
+      description: Only G6; validates entire registered event including producer/source/envelope links; current full recipient
+        branches, at most 1000, no truncation or partial routing.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    $ref: '#/components/schemas/Recipients'
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - purpose
+              - event
+              properties:
+                purpose:
+                  const: NOTIFICATION_ROUTING
+                event:
+                  $ref: '#/components/schemas/IncomingNotificationEvent'
+  /internal/notification-recipients/validate:
+    post:
+      operationId: G5-I06
+      security:
+      - service: []
+      description: Only G6; reruns full current event policy before each delivery, no user session. Does not replace G1 reminder
+        eligibility check.
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required:
+                - data
+                - traceId
+                properties:
+                  data:
+                    type: object
+                    additionalProperties: false
+                    required:
+                    - eligible
+                    - recipient
+                    - checkedAt
+                    properties:
+                      eligible:
+                        type: boolean
+                      recipient:
+                        anyOf:
+                        - $ref: '#/components/schemas/Recipient'
+                        - type: 'null'
+                      checkedAt: &id015
+                        type: string
+                        format: date-time
+                  traceId:
+                    $ref: '#/components/schemas/Id'
+        '400':
+          description: 400 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: 401 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '403':
+          description: 403 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: 404 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: 409 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '503':
+          description: 503 management error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+              - event
+              - recipientId
+              properties:
+                event:
+                  $ref: '#/components/schemas/IncomingNotificationEvent'
+                recipientId: *id009
+components:
+  securitySchemes:
+    session:
+      type: apiKey
+      in: cookie
+      name: PJ_SESSION
+    service:
+      type: http
+      scheme: bearer
+  parameters:
+    Csrf:
+      name: X-CSRF-Token
+      in: header
+      required: false
+      schema:
+        type: string
+        minLength: 32
+        maxLength: 128
+    ManagementCsrf:
+      name: X-CSRF-Token
+      in: header
+      required: true
+      schema:
+        type: string
+        minLength: 32
+        maxLength: 128
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        $ref: '#/components/schemas/Id'
+  requestBodies:
+    Empty:
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            maxProperties: 0
+  schemas:
+    Id:
+      type: string
+      format: uuid
+    Version:
+      type: string
+      pattern: ^[1-9][0-9]{0,18}$
+    Principal:
+      type: object
+      additionalProperties: false
+      required:
+      - userId
+      - displayName
+      - deptId
+      - accountVersion
+      - permissionVersion
+      - grants
+      - mustChangePassword
+      - expiresAt
+      properties:
+        userId:
+          $ref: '#/components/schemas/Id'
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        deptId:
+          $ref: '#/components/schemas/Id'
+        accountVersion:
+          $ref: '#/components/schemas/Version'
+        permissionVersion:
+          $ref: '#/components/schemas/Version'
+        mustChangePassword:
+          type: boolean
+          const: false
+          deprecated: true
+          description: Compatibility field; mandatory first-password change is retired.
+        expiresAt:
+          type: string
+          format: date-time
+        grants: &id014
+          type: array
+          maxItems: 1000
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - action
+            - scope
+            properties:
+              action:
+                type: string
+                minLength: 1
+                maxLength: 80
+              scope:
+                oneOf:
+                - type: object
+                  additionalProperties: false
+                  required:
+                  - kind
+                  properties:
+                    kind:
+                      const: SCHOOL
+                - type: object
+                  additionalProperties: false
+                  required:
+                  - kind
+                  properties:
+                    kind:
+                      const: SYSTEM
+                - type: object
+                  additionalProperties: false
+                  required:
+                  - kind
+                  - departmentId
+                  properties:
+                    kind:
+                      const: DEPARTMENT
+                    departmentId:
+                      $ref: '#/components/schemas/Id'
+                - type: object
+                  additionalProperties: false
+                  required:
+                  - kind
+                  - roomId
+                  properties:
+                    kind:
+                      const: ROOM
+                    roomId:
+                      $ref: '#/components/schemas/Id'
+    Error:
+      type: object
+      additionalProperties: false
+      required:
+      - code
+      - message
+      - traceId
+      - details
+      properties:
+        code:
+          enum:
+          - VALIDATION_ERROR
+          - UNAUTHENTICATED
+          - FORBIDDEN
+          - PASSWORD_CHANGE_REQUIRED
+          - CURRENT_PASSWORD_INVALID
+          - VERSION_CONFLICT
+          - RATE_LIMITED
+          - AUTH_UNAVAILABLE
+          - NOT_FOUND
+          - DUPLICATE_CODE
+          - LAST_ADMIN_PROTECTED
+          - IDEMPOTENCY_CONFLICT
+          - SCOPE_FACTS_UNAVAILABLE
+          - DEPENDENCY_UNAVAILABLE
+        message:
+          type: string
+          minLength: 1
+          maxLength: 500
+        traceId:
+          $ref: '#/components/schemas/Id'
+        details:
+          type: object
+          additionalProperties: false
+          required:
+          - fields
+          - conflicts
+          - currentVersion
+          - operationId
+          - retryAfterSeconds
+          properties:
+            fields:
+              type: array
+              maxItems: 30
+              items:
+                type: object
+                additionalProperties: false
+                required:
+                - field
+                - reason
+                properties:
+                  field:
+                    type: string
+                  reason:
+                    type: string
+            conflicts:
+              type: array
+              maxItems: 0
+            currentVersion:
+              type:
+              - string
+              - 'null'
+            operationId:
+              type:
+              - string
+              - 'null'
+              format: uuid
+            retryAfterSeconds:
+              type:
+              - integer
+              - 'null'
+              minimum: 0
+              maximum: 3600
+    Account:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - version
+      - createdAt
+      - updatedAt
+      - userCode
+      - displayName
+      - departmentId
+      - email
+      - enabled
+      - mustChangePassword
+      - roleIds
+      - permissionVersion
+      properties:
+        id: &id010
+          $ref: '#/components/schemas/Id'
+        version: &id011
+          $ref: '#/components/schemas/Version'
+        createdAt: &id012
+          type: string
+          format: date-time
+        updatedAt: &id013
+          type: string
+          format: date-time
+        userCode:
+          type: string
+          minLength: 1
+          maxLength: 40
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        departmentId:
+          $ref: '#/components/schemas/Id'
+        email:
+          type: string
+          minLength: 1
+          maxLength: 254
+          format: email
+        enabled:
+          type: boolean
+        mustChangePassword:
+          type: boolean
+          const: false
+        roleIds:
+          type: array
+          items:
+            $ref: '#/components/schemas/Id'
+          maxItems: 50
+          uniqueItems: true
+        permissionVersion:
+          $ref: '#/components/schemas/Version'
+    Role:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - version
+      - createdAt
+      - updatedAt
+      - key
+      - name
+      - builtIn
+      - grants
+      properties:
+        id: *id010
+        version: *id011
+        createdAt: *id012
+        updatedAt: *id013
+        key:
+          type: string
+          minLength: 1
+          maxLength: 60
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        builtIn:
+          type: boolean
+        grants: *id014
+    Department:
+      type: object
+      additionalProperties: false
+      required:
+      - id
+      - version
+      - createdAt
+      - updatedAt
+      - code
+      - name
+      - enabled
+      properties:
+        id: *id010
+        version: *id011
+        createdAt: *id012
+        updatedAt: *id013
+        code:
+          type: string
+          minLength: 1
+          maxLength: 40
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        enabled:
+          type: boolean
+    AccountPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - page
+      - pageSize
+      - total
+      - asOf
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Account'
+        page:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        asOf:
+          type: string
+          format: date-time
+    RolePage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - page
+      - pageSize
+      - total
+      - asOf
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Role'
+        page:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        asOf:
+          type: string
+          format: date-time
+    DepartmentPage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - page
+      - pageSize
+      - total
+      - asOf
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Department'
+        page:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        asOf:
+          type: string
+          format: date-time
+    PermissionDescriptor:
+      type: object
+      additionalProperties: false
+      required:
+      - action
+      - description
+      - scopeKinds
+      - ownerGroup
+      properties:
+        action:
+          type: string
+          minLength: 1
+          maxLength: 80
+        description:
+          type: string
+          minLength: 1
+          maxLength: 200
+        scopeKinds:
+          type: array
+          minItems: 1
+          maxItems: 4
+          uniqueItems: true
+          items:
+            enum:
+            - SCHOOL
+            - DEPARTMENT
+            - ROOM
+            - SYSTEM
+        ownerGroup:
+          enum:
+          - G1
+          - G2
+          - G3
+          - G4
+          - G5
+          - G6
+    ConfigValues:
+      title: 全局业务参数
+      type: object
+      additionalProperties: false
+      required:
+      - applicationAdvanceDays
+      - notificationRetryLimit
+      - reservationAdvanceDays
+      - reservationMaxHours
+      - scanIntervalSeconds
+      properties:
+        applicationAdvanceDays:
+          type: integer
+          minimum: 1
+          maximum: 14
+          default: 14
+          title: 整室申请提前天数
+          description: 只影响新整室申请的提前窗口，不改变已有申请截止时间。
+          x-unit: 天
+          x-owner-group: G2
+        notificationRetryLimit:
+          type: integer
+          minimum: 0
+          maximum: 5
+          default: 5
+          title: 通知自动重试次数
+          description: 不含首次发送；新受理通知保存该上限快照。
+          x-unit: 次
+          x-owner-group: G6
+        reservationAdvanceDays:
+          type: integer
+          minimum: 1
+          maximum: 7
+          default: 7
+          title: 个人预约提前天数
+          description: 新个人预约可提前申请的天数。
+          x-unit: 天
+          x-owner-group: G1
+        reservationMaxHours:
+          type: integer
+          minimum: 1
+          maximum: 8
+          default: 4
+          title: 个人预约时长上限
+          description: 只约束新个人预约，已有合法预约保留原规则。
+          x-unit: 小时
+          x-owner-group: G1
+        scanIntervalSeconds:
+          type: integer
+          minimum: 1
+          maximum: 30
+          default: 10
+          title: 自动检查间隔
+          description: 消费者从下次扫描开始采用；不改变业务截止时刻。
+          x-unit: 秒
+          x-owner-group: G6
+    Config:
+      type: object
+      additionalProperties: false
+      required:
+      - version
+      - effectiveAt
+      - values
+      properties:
+        version:
+          $ref: '#/components/schemas/Version'
+        effectiveAt:
+          type: string
+          format: date-time
+        values:
+          $ref: '#/components/schemas/ConfigValues'
+    AccountFact:
+      type: object
+      additionalProperties: false
+      required:
+      - userId
+      - departmentId
+      - enabled
+      - accountVersion
+      properties:
+        userId:
+          $ref: '#/components/schemas/Id'
+        departmentId:
+          $ref: '#/components/schemas/Id'
+        enabled:
+          type: boolean
+        accountVersion:
+          $ref: '#/components/schemas/Version'
+    QualificationFacts:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - checkedAt
+      - validUntil
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/AccountFact'
+        checkedAt:
+          type: string
+          format: date-time
+        validUntil:
+          type: string
+          format: date-time
+    ScopeFacts:
+      type: object
+      additionalProperties: false
+      required:
+      - roomId
+      - schoolWide
+      - deptId
+      - enabled
+      - roomVersion
+      - asOf
+      properties:
+        roomId: *id009
+        schoolWide:
+          type: boolean
+        deptId:
+          anyOf:
+          - *id009
+          - type: 'null'
+        enabled:
+          type: boolean
+        roomVersion: *id008
+        asOf: *id015
+    Eligibility:
+      type: object
+      additionalProperties: false
+      required:
+      - subjectId
+      - active
+      - hasPermission
+      - scopeMatched
+      - canAccessRoom
+      - eligible
+      - accountVersion
+      - permissionVersion
+      - roomVersion
+      - checkedAt
+      - validUntil
+      properties:
+        subjectId: *id009
+        active:
+          type: boolean
+        hasPermission:
+          type: boolean
+        scopeMatched:
+          type: boolean
+        canAccessRoom:
+          type: boolean
+        eligible:
+          type: boolean
+        accountVersion: *id008
+        permissionVersion: *id008
+        roomVersion: *id008
+        checkedAt: *id015
+        validUntil: *id015
+    AuthorizationTarget:
+      oneOf:
+      - type: object
+        additionalProperties: false
+        required:
+        - kind
+        - roomId
+        properties:
+          kind:
+            const: ROOM
+          roomId: *id009
+      - type: object
+        additionalProperties: false
+        required:
+        - kind
+        properties:
+          kind:
+            const: SYSTEM
+    AuthorizationQuery:
+      type: object
+      additionalProperties: false
+      required:
+      - checkId
+      - action
+      - target
+      properties:
+        checkId: *id009
+        action:
+          type: string
+          minLength: 1
+          maxLength: 80
+        target:
+          $ref: '#/components/schemas/AuthorizationTarget'
+    AuthorizationDecision:
+      type: object
+      additionalProperties: false
+      required:
+      - checkId
+      - action
+      - target
+      - allowed
+      - roomVersion
+      - reason
+      properties:
+        checkId: *id009
+        action:
+          type: string
+          minLength: 1
+          maxLength: 80
+        target:
+          $ref: '#/components/schemas/AuthorizationTarget'
+        allowed:
+          type: boolean
+        roomVersion:
+          anyOf:
+          - *id008
+          - type: 'null'
+        reason:
+          enum:
+          - ALLOWED
+          - NO_ACTION
+          - SCOPE_MISMATCH
+          - RESOURCE_NOT_FOUND
+    AuthorizationBatch:
+      type: object
+      additionalProperties: false
+      required:
+      - actorId
+      - accountVersion
+      - permissionVersion
+      - checkedAt
+      - validUntil
+      - items
+      properties:
+        actorId: *id009
+        accountVersion: *id008
+        permissionVersion: *id008
+        checkedAt: *id015
+        validUntil: *id015
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/AuthorizationDecision'
+    Candidate:
+      type: object
+      additionalProperties: false
+      required:
+      - userId
+      - displayName
+      - qualificationSummary
+      properties:
+        userId: *id009
+        displayName:
+          type: string
+          minLength: 1
+          maxLength: 100
+        qualificationSummary:
+          type: string
+          minLength: 1
+          maxLength: 200
+    CandidatePage:
+      type: object
+      additionalProperties: false
+      required:
+      - items
+      - page
+      - pageSize
+      - total
+      - asOf
+      properties:
+        items:
+          type: array
+          minItems: 0
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/Candidate'
+        page:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+        pageSize:
+          type: integer
+          minimum: 1
+          maximum: 100
+        total:
+          type: integer
+          minimum: 0
+          maximum: 2147483647
+        asOf: *id015
+    Recipient:
+      type: object
+      additionalProperties: false
+      required:
+      - userId
+      - email
+      - accountVersion
+      - permissionVersion
+      - branches
+      properties:
+        userId: *id009
+        email:
+          type: string
+          format: email
+          minLength: 1
+          maxLength: 254
+        accountVersion: *id008
+        permissionVersion: *id008
+        branches:
+          type: array
+          minItems: 1
+          maxItems: 8
+          items:
+            enum:
+            - OWNER
+            - APPLICANT
+            - REPORTER
+            - OLD_ASSIGNEE
+            - NEW_ASSIGNEE
+            - ASSIGNEE
+            - LEVEL1
+            - LEVEL2
+            - ROOM_MANAGER
+            - OPERATOR
+            - SYSTEM_OPERATOR
+    Recipients:
+      type: object
+      additionalProperties: false
+      required:
+      - outcome
+      - recipients
+      - excluded
+      - scopeFacts
+      - resolvedAt
+      properties:
+        outcome:
+          enum:
+          - RESOLVED
+          - NO_ELIGIBLE_RECIPIENTS
+        recipients:
+          type: array
+          minItems: 0
+          maxItems: 1000
+          items:
+            $ref: '#/components/schemas/Recipient'
+        excluded:
+          type: array
+          minItems: 0
+          items:
+            type: object
+            additionalProperties: false
+            required:
+            - userId
+            - reason
+            properties:
+              userId: *id009
+              reason:
+                enum:
+                - ACCOUNT_DISABLED
+                - NO_EMAIL
+                - SCOPE_REVOKED
+          maxItems: 1000
+        scopeFacts:
+          anyOf:
+          - $ref: '#/components/schemas/ScopeFacts'
+          - type: 'null'
+        resolvedAt: *id015
+    IncomingNotificationEvent:
+      title: G5 consumer baseline for the nineteen registered events; provider review pending
+      oneOf:
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: &id016
+            type: string
+            pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          eventType:
+            const: ReservationReminderEarly
+          schemaVersion:
+            const: 1
+          producer:
+            const: G1
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                const: PERSONAL
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: &id018
+            type: string
+            pattern: ^[1-9][0-9]{0,18}$
+          roomId: *id016
+          occurredAt: &id017
+            type: string
+            format: date-time
+            maxLength: 40
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: &id019
+            type: object
+            additionalProperties: false
+            required:
+            - id
+            - producer
+            - source
+            - roomId
+            - scopeKind
+            - actorId
+            - actorKind
+            - action
+            - before
+            - after
+            - reason
+            - result
+            - errorCode
+            - effectiveAt
+            - processedAt
+            - traceId
+            - operationId
+            properties:
+              id: *id016
+              producer:
+                enum:
+                - G1
+                - G2
+                - G3
+                - G4
+                - G5
+                - G6
+              source: &id023
+                type: object
+                additionalProperties: false
+                required:
+                - type
+                - id
+                properties:
+                  type:
+                    enum:
+                    - PERSONAL
+                    - WHOLE
+                    - REPAIR
+                    - ADMIN
+                    - ACCOUNT
+                    - CONFIG
+                    - SYSTEM
+                  id: *id016
+              roomId:
+                anyOf:
+                - *id016
+                - type: 'null'
+              scopeKind:
+                enum:
+                - ROOM
+                - SYSTEM
+              actorId:
+                anyOf:
+                - *id016
+                - type: 'null'
+              actorKind:
+                enum:
+                - USER
+                - SYSTEM
+              action:
+                type: string
+                minLength: 1
+                maxLength: 80
+              before:
+                type: array
+                minItems: 0
+                maxItems: 40
+                items:
+                  type: object
+                  additionalProperties: false
+                  required:
+                  - name
+                  - value
+                  properties:
+                    name:
+                      type: string
+                      minLength: 1
+                      maxLength: 80
+                    value:
+                      anyOf:
+                      - type: string
+                        minLength: 0
+                        maxLength: 500
+                      - type: 'null'
+              after:
+                type: array
+                minItems: 0
+                maxItems: 40
+                items:
+                  type: object
+                  additionalProperties: false
+                  required:
+                  - name
+                  - value
+                  properties:
+                    name:
+                      type: string
+                      minLength: 1
+                      maxLength: 80
+                    value:
+                      anyOf:
+                      - type: string
+                        minLength: 0
+                        maxLength: 500
+                      - type: 'null'
+              reason:
+                anyOf:
+                - type: string
+                  minLength: 1
+                  maxLength: 1000
+                - type: 'null'
+              result:
+                enum:
+                - SUCCESS
+                - FAILURE
+              errorCode:
+                anyOf:
+                - type: string
+                  minLength: 1
+                  maxLength: 80
+                - type: 'null'
+              effectiveAt: *id017
+              processedAt: *id017
+              traceId: *id016
+              operationId:
+                anyOf:
+                - *id016
+                - type: 'null'
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - reservationId
+            - ownerId
+            - roomName
+            - seatCode
+            - start
+            - end
+            - deadline
+            properties: &id020
+              reservationId: *id016
+              ownerId: *id016
+              roomName: &id021
+                type: string
+                minLength: 1
+                maxLength: 100
+              seatCode: &id022
+                type: string
+                minLength: 1
+                maxLength: 40
+              start: *id017
+              end: *id017
+              deadline: *id017
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: ReservationReminderLate
+          schemaVersion:
+            const: 1
+          producer:
+            const: G1
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                const: PERSONAL
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId: *id016
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - reservationId
+            - ownerId
+            - roomName
+            - seatCode
+            - start
+            - end
+            - deadline
+            properties: *id020
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: ReservationCancelled
+          schemaVersion:
+            const: 1
+          producer:
+            const: G1
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                const: PERSONAL
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId: *id016
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - reservationId
+            - ownerId
+            - roomName
+            - seatCode
+            - start
+            - end
+            - deadline
+            - status
+            - reason
+            - maintenanceSource
+            properties:
+              reservationId: *id016
+              ownerId: *id016
+              roomName: *id021
+              seatCode: *id022
+              start: *id017
+              end: *id017
+              deadline: *id017
+              status:
+                enum:
+                - CANCELLED_USER
+                - CANCELLED_NO_SHOW
+                - CANCELLED_SYSTEM
+              reason:
+                type: string
+                minLength: 1
+                maxLength: 1000
+              maintenanceSource:
+                anyOf:
+                - *id023
+                - type: 'null'
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: AppealDecided
+          schemaVersion:
+            const: 1
+          producer:
+            const: G1
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                const: PERSONAL
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId: *id016
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - appealId
+            - violationId
+            - reservationId
+            - ownerId
+            - decision
+            - reason
+            properties:
+              appealId: *id016
+              violationId: *id016
+              reservationId: *id016
+              ownerId: *id016
+              decision:
+                enum:
+                - KEEP
+                - CORRECT
+              reason:
+                type: string
+                minLength: 1
+                maxLength: 1000
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: ViolationCorrected
+          schemaVersion:
+            const: 1
+          producer:
+            const: G1
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                const: PERSONAL
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId: *id016
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - violationId
+            - reservationId
+            - ownerId
+            - reason
+            properties:
+              violationId: *id016
+              reservationId: *id016
+              ownerId: *id016
+              reason:
+                type: string
+                minLength: 1
+                maxLength: 1000
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: ApprovalTaskOpened
+          schemaVersion:
+            const: 1
+          producer:
+            const: G2
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                const: WHOLE
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId: *id016
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - applicationId
+            - applicantId
+            - start
+            - end
+            - status
+            - reason
+            - level
+            - deadline
+            - excludedActorIds
+            properties:
+              applicationId: *id016
+              applicantId: *id016
+              start: *id017
+              end: *id017
+              status:
+                enum:
+                - PENDING_L1
+                - PENDING_L2
+                - ACQUIRING
+                - APPROVED
+                - REJECTED
+                - RESOURCE_CONFLICT
+                - WITHDRAWING
+                - WITHDRAWN
+                - TERMINATING
+                - TERMINATED
+                - EXPIRED
+                - CANCELLED_SYSTEM
+                - FINISHING
+                - FINISHED
+              reason: &id024
+                anyOf:
+                - type: string
+                  minLength: 1
+                  maxLength: 1000
+                - type: 'null'
+              level:
+                type: integer
+                minimum: 1
+                maximum: 2
+              deadline: *id017
+              excludedActorIds:
+                type: array
+                minItems: 1
+                maxItems: 2
+                items: *id016
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: ApprovalStatusChanged
+          schemaVersion:
+            const: 1
+          producer:
+            const: G2
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                const: WHOLE
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId: *id016
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - applicationId
+            - applicantId
+            - start
+            - end
+            - status
+            - reason
+            properties:
+              applicationId: *id016
+              applicantId: *id016
+              start: *id017
+              end: *id017
+              status:
+                enum:
+                - APPROVED
+                - REJECTED
+                - RESOURCE_CONFLICT
+                - WITHDRAWN
+                - TERMINATED
+                - EXPIRED
+                - CANCELLED_SYSTEM
+                - FINISHED
+              reason: *id024
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: WorkOrderAssigned
+          schemaVersion:
+            const: 1
+          producer:
+            const: G3
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                const: REPAIR
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId: *id016
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - workOrderId
+            - reporterId
+            - newAssigneeId
+            - oldAssigneeId
+            - reason
+            properties:
+              workOrderId: *id016
+              reporterId: *id016
+              newAssigneeId: *id016
+              oldAssigneeId:
+                anyOf:
+                - *id016
+                - type: 'null'
+              reason:
+                type: string
+                minLength: 1
+                maxLength: 1000
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: WorkOrderRepairStarted
+          schemaVersion:
+            const: 1
+          producer:
+            const: G3
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                const: REPAIR
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId: *id016
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - workOrderId
+            - reporterId
+            - assigneeId
+            - startedAt
+            properties:
+              workOrderId: *id016
+              reporterId: *id016
+              assigneeId: *id016
+              startedAt: *id017
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: WorkOrderCompletionSubmitted
+          schemaVersion:
+            const: 1
+          producer:
+            const: G3
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                const: REPAIR
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId: *id016
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - workOrderId
+            - reporterId
+            - assigneeId
+            - submittedAt
+            - actualRepairerIds
+            properties:
+              workOrderId: *id016
+              reporterId: *id016
+              assigneeId: *id016
+              submittedAt: *id017
+              actualRepairerIds:
+                type: array
+                minItems: 1
+                maxItems: 100
+                items: *id016
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: WorkOrderEscalated
+          schemaVersion:
+            const: 1
+          producer:
+            const: G3
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                const: REPAIR
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId: *id016
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - workOrderId
+            - reporterId
+            - type
+            - dueAt
+            - assigneeId
+            properties:
+              workOrderId: *id016
+              reporterId: *id016
+              type:
+                enum:
+                - UNASSIGNED
+                - REPAIR_OVERDUE
+              dueAt: *id017
+              assigneeId:
+                anyOf:
+                - *id016
+                - type: 'null'
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: WorkOrderAccepted
+          schemaVersion:
+            const: 1
+          producer:
+            const: G3
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                const: REPAIR
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId: *id016
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - workOrderId
+            - reporterId
+            - acceptedAt
+            properties:
+              workOrderId: *id016
+              reporterId: *id016
+              acceptedAt: *id017
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: WorkOrderReturned
+          schemaVersion:
+            const: 1
+          producer:
+            const: G3
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                const: REPAIR
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId: *id016
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - workOrderId
+            - reporterId
+            - assigneeId
+            - reason
+            properties:
+              workOrderId: *id016
+              reporterId: *id016
+              assigneeId: *id016
+              reason:
+                type: string
+                minLength: 1
+                maxLength: 1000
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: WorkOrderClosed
+          schemaVersion:
+            const: 1
+          producer:
+            const: G3
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                const: REPAIR
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId: *id016
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - workOrderId
+            - reporterId
+            - assigneeId
+            - status
+            - reason
+            properties:
+              workOrderId: *id016
+              reporterId: *id016
+              assigneeId:
+                anyOf:
+                - *id016
+                - type: 'null'
+              status:
+                enum:
+                - CANCELLED
+                - CLOSED
+              reason:
+                type: string
+                minLength: 1
+                maxLength: 1000
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: ClaimInvalidated
+          schemaVersion:
+            const: 1
+          producer:
+            const: G4
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                enum:
+                - PERSONAL
+                - WHOLE
+                - REPAIR
+                - ADMIN
+                - ACCOUNT
+                - CONFIG
+                - SYSTEM
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId: *id016
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - applicationId
+            - claimId
+            - maintenanceSource
+            - effectiveAt
+            - reason
+            - ledgerVersion
+            - sourceVersion
+            properties:
+              applicationId: *id016
+              claimId: *id016
+              maintenanceSource: *id023
+              effectiveAt: *id017
+              reason:
+                type: string
+                minLength: 1
+                maxLength: 1000
+              ledgerVersion: *id018
+              sourceVersion: *id018
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: MaintenanceImpactApplied
+          schemaVersion:
+            const: 1
+          producer:
+            const: G4
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                enum:
+                - PERSONAL
+                - WHOLE
+                - REPAIR
+                - ADMIN
+                - ACCOUNT
+                - CONFIG
+                - SYSTEM
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId: *id016
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - source
+            - affectedPersonalCount
+            - affectedWholeCount
+            - effectiveAt
+            - reason
+            properties:
+              source: *id023
+              affectedPersonalCount:
+                type: integer
+                minimum: 0
+                maximum: 2147483647
+              affectedWholeCount:
+                type: integer
+                minimum: 0
+                maximum: 2147483647
+              effectiveAt: *id017
+              reason:
+                type: string
+                minLength: 1
+                maxLength: 1000
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: ConfigChanged
+          schemaVersion:
+            const: 1
+          producer:
+            const: G5
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                const: CONFIG
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - configVersion
+            - effectiveAt
+            - changedKeys
+            properties:
+              configVersion: *id018
+              effectiveAt: *id017
+              changedKeys:
+                type: array
+                minItems: 1
+                maxItems: 5
+                items:
+                  enum:
+                  - reservationMaxHours
+                  - reservationAdvanceDays
+                  - applicationAdvanceDays
+                  - scanIntervalSeconds
+                  - notificationRetryLimit
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: RecoveryAttention
+          schemaVersion:
+            const: 1
+          producer:
+            const: G6
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                enum:
+                - PERSONAL
+                - WHOLE
+                - REPAIR
+                - ADMIN
+                - ACCOUNT
+                - CONFIG
+                - SYSTEM
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required:
+            - ownerGroup
+            - operationId
+            - reason
+            properties:
+              ownerGroup:
+                enum:
+                - G1
+                - G2
+                - G3
+                - G4
+                - G5
+                - G6
+              operationId: *id016
+              reason:
+                type: string
+                minLength: 1
+                maxLength: 1000
+      - type: object
+        additionalProperties: false
+        required:
+        - eventId
+        - eventType
+        - schemaVersion
+        - producer
+        - aggregate
+        - aggregateVersion
+        - roomId
+        - occurredAt
+        - actorId
+        - actorKind
+        - traceId
+        - operationId
+        - audit
+        - payload
+        properties:
+          eventId: *id016
+          eventType:
+            const: AuditRecorded
+          schemaVersion:
+            const: 1
+          producer:
+            enum:
+            - G1
+            - G2
+            - G3
+            - G4
+            - G5
+            - G6
+          aggregate:
+            type: object
+            additionalProperties: false
+            required:
+            - type
+            - id
+            properties:
+              type:
+                enum:
+                - PERSONAL
+                - WHOLE
+                - REPAIR
+                - ADMIN
+                - ACCOUNT
+                - CONFIG
+                - SYSTEM
+              id:
+                type: string
+                pattern: ^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$
+          aggregateVersion: *id018
+          roomId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          occurredAt: *id017
+          actorId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          actorKind:
+            enum:
+            - USER
+            - SYSTEM
+          traceId: *id016
+          operationId:
+            anyOf:
+            - *id016
+            - type: 'null'
+          audit: *id019
+          payload:
+            type: object
+            additionalProperties: false
+            required: []
+            properties: {}
+  responses:
+    Identity:
+      description: Current identity and actual role grants; mustChangePassword is false.
+      content:
+        application/json:
+          schema:
+            type: object
+            additionalProperties: false
+            required:
+            - data
+            - traceId
+            properties:
+              data:
+                $ref: '#/components/schemas/Principal'
+              traceId:
+                $ref: '#/components/schemas/Id'
+    Invalid:
+      description: 400 VALIDATION_ERROR, including unknown query/body fields.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthenticated:
+      description: 401 UNAUTHENTICATED for invalid credentials/session; no account-existence disclosure.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: 403 FORBIDDEN for invalid CSRF/service token; CURRENT_PASSWORD_INVALID for wrong current password.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Conflict:
+      description: 409 VERSION_CONFLICT; currentVersion is the current account version.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Limited:
+      description: 429 RATE_LIMITED, with Retry-After and retryAfterSeconds; 10 failed credentials in 5 minutes cause a 5-minute
+        cooldown.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unavailable:
+      description: 503 AUTH_UNAVAILABLE; no stale positive authorization fallback.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

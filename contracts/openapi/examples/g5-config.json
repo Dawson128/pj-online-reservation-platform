@@ -1,0 +1,120 @@
+[
+  {
+    "path": "/api/m2/admin/config",
+    "method": "get",
+    "status": "200",
+    "body": {
+      "data": {
+        "version": "1",
+        "effectiveAt": "2026-11-03T12:00:00.000+08:00",
+        "values": {
+          "reservationMaxHours": 4,
+          "reservationAdvanceDays": 7,
+          "applicationAdvanceDays": 14,
+          "scanIntervalSeconds": 10,
+          "notificationRetryLimit": 5
+        }
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    }
+  },
+  {
+    "path": "/api/m2/admin/config",
+    "method": "get",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "无权访问配置",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/api/m2/admin/config",
+    "method": "patch",
+    "status": "200",
+    "body": {
+      "data": {
+        "version": "2",
+        "effectiveAt": "2026-11-03T12:00:00.000+08:00",
+        "values": {
+          "reservationMaxHours": 4,
+          "reservationAdvanceDays": 7,
+          "applicationAdvanceDays": 14,
+          "scanIntervalSeconds": 10,
+          "notificationRetryLimit": 5
+        }
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    },
+    "request": {
+      "expectedVersion": "1",
+      "values": {
+        "reservationMaxHours": 4,
+        "reservationAdvanceDays": 7,
+        "applicationAdvanceDays": 14,
+        "scanIntervalSeconds": 10,
+        "notificationRetryLimit": 5
+      }
+    }
+  },
+  {
+    "path": "/api/m2/admin/config",
+    "method": "patch",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "无权访问配置",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  },
+  {
+    "path": "/internal/config",
+    "method": "get",
+    "status": "200",
+    "body": {
+      "data": {
+        "version": "1",
+        "effectiveAt": "2026-11-03T12:00:00.000+08:00",
+        "values": {
+          "reservationMaxHours": 4,
+          "reservationAdvanceDays": 7,
+          "applicationAdvanceDays": 14,
+          "scanIntervalSeconds": 10,
+          "notificationRetryLimit": 5
+        }
+      },
+      "traceId": "00000000-0000-4000-8000-000000000099"
+    }
+  },
+  {
+    "path": "/internal/config",
+    "method": "get",
+    "status": "403",
+    "body": {
+      "code": "FORBIDDEN",
+      "message": "无权访问配置",
+      "traceId": "00000000-0000-4000-8000-000000000099",
+      "details": {
+        "fields": [],
+        "conflicts": [],
+        "currentVersion": null,
+        "operationId": null,
+        "retryAfterSeconds": null
+      }
+    }
+  }
+]

@@ -28,6 +28,55 @@ jobs:
           java-version: '21'
           cache: maven
       - run: mvn -B -ntp verify
+  g5-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17.9-bookworm@sha256:47f917f7409eacd22fc5dfb1dee634e1b55cf0c01d1a7eb701be2227a03e0641
+        env:
+          POSTGRES_USER: pj_dev
+          POSTGRES_PASSWORD: ci-ephemeral-only
+          POSTGRES_DB: postgres
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U pj_dev -d postgres"
+          --health-interval 5s --health-timeout 3s --health-retries 20
+    env:
+      # Disposable CI fixture only; never a deployment credential.
+      DB_USERNAME: pj_dev
+      DB_PASSWORD: ci-ephemeral-only
+      DB_MIGRATION_USERNAME: pj_dev
+      DB_MIGRATION_PASSWORD: ci-ephemeral-only
+      PGPASSWORD: ci-ephemeral-only
+      PSQL_BIN: /usr/bin/psql
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4
+        with:
+          distribution: temurin
+          java-version: '21'
+          cache: maven
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Prepare isolated G5 databases
+        run: python3 scripts/prepare-g5-ci.py
+      - name: Real packaged-service PostgreSQL acceptance
+        run: mvn -B -ntp -pl services/approval -am -Ppostgres-it verify
+      - name: Check G5 provider contracts
+        run: |
+          python3 -m pip install -r scripts/requirements-contracts.txt
+          python3 scripts/verify-auth-contracts.py
+          python3 scripts/verify-config-contracts.py
+          python3 scripts/verify-operation-contracts.py --responses services/approval/target/local-port-results.json
+      - run: npm ci --no-audit --no-fund
+      - run: npm run build
+      - name: Install real browser
+        run: npx playwright install --with-deps chromium
+      - name: Real G5 browser regression
+        run: npm run test:e2e --workspace apps/web
   compose:
     runs-on: ubuntu-24.04
     needs: [web, backend]
@@ -65,7 +114,7 @@ jobs:
   required:
     name: bootstrap-required
     if: always()
-    needs: [web, backend, compose]
+    needs: [web, backend, compose, g5-validation]
     runs-on: ubuntu-24.04
     steps:
       - name: Require every bootstrap job to execute successfully
@@ -73,4 +122,5 @@ jobs:
           WEB: ${{ needs.web.result }}
           BACKEND: ${{ needs.backend.result }}
           COMPOSE: ${{ needs.compose.result }}
-        run: test "$WEB" = success && test "$BACKEND" = success && test "$COMPOSE" = success
+          G5: ${{ needs.g5-validation.result }}
+        run: test "$WEB" = success && test "$BACKEND" = success && test "$COMPOSE" = success && test "$G5" = success

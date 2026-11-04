@@ -1,0 +1,68 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:pj:g5:ConfigValues:v1",
+  "title": "全局业务参数",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "applicationAdvanceDays",
+    "notificationRetryLimit",
+    "reservationAdvanceDays",
+    "reservationMaxHours",
+    "scanIntervalSeconds"
+  ],
+  "properties": {
+    "applicationAdvanceDays": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 14,
+      "default": 14,
+      "title": "整室申请提前天数",
+      "description": "只影响新整室申请的提前窗口，不改变已有申请截止时间。",
+      "x-unit": "天",
+      "x-owner-group": "G2"
+    },
+    "notificationRetryLimit": {
+      "type": "integer",
+      "minimum": 0,
+      "maximum": 5,
+      "default": 5,
+      "title": "通知自动重试次数",
+      "description": "不含首次发送；新受理通知保存该上限快照。",
+      "x-unit": "次",
+      "x-owner-group": "G6"
+    },
+    "reservationAdvanceDays": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 7,
+      "default": 7,
+      "title": "个人预约提前天数",
+      "description": "新个人预约可提前申请的天数。",
+      "x-unit": "天",
+      "x-owner-group": "G1"
+    },
+    "reservationMaxHours": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 8,
+      "default": 4,
+      "title": "个人预约时长上限",
+      "description": "只约束新个人预约，已有合法预约保留原规则。",
+      "x-unit": "小时",
+      "x-owner-group": "G1"
+    },
+    "scanIntervalSeconds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 30,
+      "default": 10,
+      "title": "自动检查间隔",
+      "description": "消费者从下次扫描开始采用；不改变业务截止时刻。",
+      "x-unit": "秒",
+      "x-owner-group": "G6"
+    }
+  },
+  "x-review-status": "BASELINE_PENDING_OWNER_REVIEW",
+  "x-source": "技术文档v2 §4.3、§5.5"
+}

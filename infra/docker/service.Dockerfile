@@ -3,6 +3,8 @@ WORKDIR /workspace
 COPY pom.xml ./
 COPY services ./services
 COPY db ./db
+COPY contracts ./contracts
+COPY 需求与技术文档 ./需求与技术文档
 ARG SERVICE
 RUN mvn -B -ntp -pl services/${SERVICE} -am package -DskipTests && cp services/${SERVICE}/target/*-service-*.jar /service.jar
 

@@ -10,7 +10,7 @@
 | G3 | services/maintenance/modules/g3 | m3 | 报修→派单→维修封锁→验收释放 |
 | G6 | services/maintenance/modules/g6 | m3 | 事件持久收件→通知→审计 |
 
-其他组仅创建了空目录，无业务、表或契约实现。各 owner 按自己的任务增加文件。每个模块已经接入服务 Maven 的 source/test source；使用 `cn.edu.campus.<service>.gN.api/application/domain/persistence` 包。Java source/test 放在模块内，勿放入 G6 启动目录。需要模块专用 resources 时由 G6 补接构建入口。
+当前 G4 已有契约和 m1 SQL；G5 已迁入身份、管理页面和 m2 SQL。其他模块按各自实际状态继续接入。每个模块已经接入服务 Maven 的 source/test source；使用 `cn.edu.campus.<service>.gN.api/application/domain/persistence` 包。Java source/test 放在模块内，勿放入 G6 启动目录。需要模块专用 resources 时由 G6 补接构建入口。
 
 G4 的协调器放在 `services/reservation/integration/src/main/java`，本地事务依赖 G1/G4 api，禁止锁内网络调用。G1 创建、取消、签到必须接协调器。G2/G3 使用真实 G4 内网 HTTP，禁止跨服务直接改表。
 
@@ -26,12 +26,12 @@ export const navigation: NavigationItem[] = [/* { label, to } */]
 ```
 G6 唯一注册器统一发现 g1—g6 routes/navigation。功能就绪后再导出入口，不展示指向空页面的菜单。导航不代表授权，后端每次检查。
 
-通过 `request<T>` 调用公开 API：返回已拆出的 data；错误保留 HTTP 状态、服务端 code 和 traceId。写请求的 key 由业务交互生成并保留，未知结果使用原键/原正文查询或重试；客户端不会自动重试。当前 CSRF 仅有内存存储接口，G5 登录成功时必须调用 setCsrfToken；刷新后的 CSRF 恢复协议需与 G5 共同确认，不能自行添加 me 返回字段。
+通过 `request<T>` 调用公开 API：返回已拆出的 data；错误保留 HTTP 状态、服务端 code 和 traceId。写请求的 key 由业务交互生成并保留，未知结果使用原键/原正文查询或重试；客户端不会自动重试。当前 G5 登录/退出/改密统一使用共享 session。CSRF 放在当前标签页 sessionStorage，刷新通过 me 恢复身份；有 Cookie 而缺 CSRF 时须重新登录，me 不返回新令牌。
 
-会话 401 会清 CSRF 并发 session-expired 事件。登录页尚未实现，统一跳转和首登改密保护待 G5 接入时由 G6 协作完成；不要将当前 session.ts 当作已完成鉴权。
+会话 401 会清 CSRF 并发 session-expired 事件。G5 已实现登录、保护路由和管理菜单控制；新建/改密为 8—24 字符，默认不强制首登改密。系统管理员需要预约时由管理员显式追加学生角色。
 
 ## 当前后端安全边界
-G6 BootstrapSecurity 仅公开 liveness，其余全部拒绝。G5 与 G6 必须共同替换为真实会话/CSRF/内省接线，再开放业务 API。不得以 permitAll 全局放行代替接入。当前没有可用的默认账户、登录口令或业务接口。
+approval 正常模式先由 G5 AuthFilter 检查持久会话、CSRF 或服务凭据，再允许已实现 G5 路径进入控制器。未知业务路径保持拒绝；shell 和其余两服务仍只开放原装配边界。新增 G2 API 必须接入该身份边界并补行为验证。管理员须显式初始化，无跨环境通用默认密码。
 
 ## 迁移与契约
 SQL 放 `db/mN/gN/VYYYYMMDD_HHMMSS_N_NNN__GN_description.sql`，UTC 时间键，同 schema 合并前核对顺序。迁移器账号独立，只写本 schema；应用账号没有 schema CREATE 权限。迁移文件会进入所属服务 jar 的 db/migration 子目录，由一个 Flyway 实例递归扫描。
