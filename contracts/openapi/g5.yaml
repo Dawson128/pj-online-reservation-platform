@@ -191,8 +191,14 @@ paths:
   /internal/auth/introspect:
     post:
       operationId: G5-I01
-      description: G1/G3/G4/G6 each use a distinct service token. Principal includes current grants immediately after login;
-        no mandatory first-password change. Not a public gateway route.
+      description: >-
+        G1/G3/G4/G6 each use a distinct service token. Principal includes current grants immediately after login;
+        no mandatory first-password change. Not a public gateway route. requestMethod defaults to GET for existing
+        callers. New consumers MUST send the actual method of the original public request. POST/PUT/PATCH/DELETE
+        require the CSRF token from that request; any explicitly supplied csrfToken is also verified for safe methods.
+        Current identity and CSRF are checked in one read snapshot. CSRF rejection is 403 FORBIDDEN with
+        details.fields containing field=csrfToken; service credential rejection is 403 without that field.
+        Missing/invalid/revoked/expired sessions are 401. No positive cross-request cache is allowed.
       security:
       - service: []
       requestBody:
@@ -209,6 +215,15 @@ paths:
                   type: string
                   minLength: 32
                   maxLength: 256
+                  writeOnly: true
+                requestMethod:
+                  type: string
+                  enum: [GET, HEAD, OPTIONS, POST, PUT, PATCH, DELETE]
+                  default: GET
+                csrfToken:
+                  type: string
+                  minLength: 32
+                  maxLength: 128
                   writeOnly: true
       responses:
         '200':

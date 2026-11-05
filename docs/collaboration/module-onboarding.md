@@ -31,7 +31,7 @@ G6 唯一注册器统一发现 g1—g6 routes/navigation。功能就绪后再导
 会话 401 会清 CSRF 并发 session-expired 事件。G5 已实现登录、保护路由和管理菜单控制；新建/改密为 8—24 字符，默认不强制首登改密。系统管理员需要预约时由管理员显式追加学生角色。
 
 ## 当前后端安全边界
-approval 正常模式先由 G5 AuthFilter 检查持久会话、CSRF 或服务凭据，再允许已实现 G5 路径进入控制器。未知业务路径保持拒绝；shell 和其余两服务仍只开放原装配边界。新增 G2 API 必须接入该身份边界并补行为验证。管理员须显式初始化，无跨环境通用默认密码。
+approval正常模式由G5 AuthFilter检查持久会话、CSRF或服务凭据，再允许已实现G5路径进入控制器。G6共享库为reservation/maintenance接入真实G5内省和写请求CSRF。新增业务接口时同步声明ApiAccessRule，由G6装配动作门禁；控制器继续按当前房间/院系事实检查对象范围与本人归属，不能只凭某条同名grant放行所有对象。未登记的路径保持拒绝，不得使用通配permitAll。具体配置和示例见shared/auth-client/README.md；测试探针不进入产品jar。新增G2 API仍须接入G5本地身份边界并补行为验证。管理员须显式初始化，无跨环境通用默认密码。
 
 ## 迁移与契约
 SQL 放 `db/mN/gN/VYYYYMMDD_HHMMSS_N_NNN__GN_description.sql`，UTC 时间键，同 schema 合并前核对顺序。迁移器账号独立，只写本 schema；应用账号没有 schema CREATE 权限。迁移文件会进入所属服务 jar 的 db/migration 子目录，由一个 Flyway 实例递归扫描。

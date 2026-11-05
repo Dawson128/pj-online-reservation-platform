@@ -69,10 +69,21 @@ public class IdentityService {
         });
     }
     public Principal introspect(String token) {
+        return introspectRequest(token, "GET", null);
+    }
+    /** G5-I01: current identity and optional CSRF are checked in the same database snapshot. */
+    public Principal introspectRequest(String token, String method, String csrf) {
         try {
             return readSnapshot.execute(status -> {
                 ActiveSession session = identities.activeSession(token);
                 if (session == null) { throw Credentials.unauthenticated(); }
+                if (!java.util.Set.of("GET", "HEAD", "OPTIONS").contains(method) || csrf != null) {
+                    if (csrf == null || csrf.length() < 32 || csrf.length() > 128
+                            || !Credentials.same(session.csrfHash(), Credentials.hash(csrf))) {
+                        throw new IdentityException(403, "FORBIDDEN", "安全校验失败，请重新登录后重试",
+                                "csrfToken", null, null);
+                    }
+                }
                 return identities.principal(session);
             });
         } catch (DataAccessException | TransactionException unavailable) { throw unavailable(); }

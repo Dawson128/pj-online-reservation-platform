@@ -3,7 +3,7 @@
   <parent><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-parent</artifactId><version>4.1.2</version><relativePath/></parent>
   <groupId>cn.edu.campus</groupId><artifactId>campus-platform</artifactId><version>0.1.0-SNAPSHOT</version><packaging>pom</packaging>
   <properties><java.version>21</java.version><project.build.sourceEncoding>UTF-8</project.build.sourceEncoding><project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding></properties>
-  <modules><module>services/reservation</module><module>services/approval</module><module>services/maintenance</module></modules>
+  <modules><module>shared/auth-client</module><module>services/reservation</module><module>services/approval</module><module>services/maintenance</module><module>tests/auth-acceptance</module></modules>
   <dependencies>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-webmvc</artifactId></dependency>
     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>

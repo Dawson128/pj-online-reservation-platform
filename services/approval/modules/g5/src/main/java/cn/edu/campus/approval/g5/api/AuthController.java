@@ -26,7 +26,9 @@ public class AuthController {
     public record PasswordBody(Object currentPassword, Object newPassword, Object expectedVersion) {
         @Override public String toString() { return "PasswordBody[credentials=REDACTED]"; }
     }
-    public record IntrospectionBody(Object sessionToken) {
+    /** Map semantics preserve missing-vs-null validation without logging bearer/CSRF values. */
+    public static final class IntrospectionBody extends java.util.LinkedHashMap<String,Object> {
+        private static final long serialVersionUID = 1L;
         @Override public String toString() { return "IntrospectionBody[credentials=REDACTED]"; }
     }
     @PostMapping("/api/m2/auth/login")
@@ -55,8 +57,18 @@ public class AuthController {
     }
     @PostMapping("/internal/auth/introspect")
     public AuthResponses.Ok<Principal> introspect(@RequestBody IntrospectionBody body, HttpServletRequest request) {
-        String token = Credentials.text(string(body.sessionToken(), "sessionToken"), 32, 256, "sessionToken", false);
-        return new AuthResponses.Ok<>(identities.introspect(token), AuthFilter.trace(request));
+        for (String field : body.keySet()) {
+            if (!java.util.Set.of("sessionToken", "requestMethod", "csrfToken").contains(field)) {
+                throw Credentials.invalid(field, "此接口不接受该字段");
+            }
+        }
+        String token = Credentials.text(string(body.get("sessionToken"), "sessionToken"), 32, 256, "sessionToken", false);
+        String method = body.containsKey("requestMethod") ? string(body.get("requestMethod"), "requestMethod") : "GET";
+        if (!java.util.Set.of("GET", "HEAD", "OPTIONS", "POST", "PUT", "PATCH", "DELETE").contains(method)) {
+            throw Credentials.invalid("requestMethod", "须为受支持的大写 HTTP 方法");
+        }
+        String csrf = body.containsKey("csrfToken") ? string(body.get("csrfToken"), "csrfToken") : null;
+        return new AuthResponses.Ok<>(identities.introspectRequest(token, method, csrf), AuthFilter.trace(request));
     }
     private static void cookie(HttpServletResponse response, String value, Duration age) {
         response.addHeader(HttpHeaders.SET_COOKIE, ResponseCookie.from(AuthFilter.COOKIE, value)

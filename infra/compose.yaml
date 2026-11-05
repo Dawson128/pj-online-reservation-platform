@@ -32,6 +32,10 @@ services:
     environment:
       SERVER_ADDRESS: 0.0.0.0
       PORT: 8081
+      G5_AUTH_BASE_URL: http://approval:8082
+      G5_AUTH_ALLOW_HTTP: 'true' # Local single-host development only; cross-host deployments use HTTPS.
+      G5_SERVICE_G1_TOKEN: ${G5_SERVICE_G1_TOKEN:?Run init-env.ps1 -AddServiceTokens}
+      G5_SERVICE_G4_TOKEN: ${G5_SERVICE_G4_TOKEN:?Run init-env.ps1 -AddServiceTokens}
       DATABASE_URL: jdbc:postgresql://postgres:5432/campus?currentSchema=m1
       DATABASE_PASSWORD: ${APP_M1_PASSWORD:?Missing app password}
       MIGRATION_PASSWORD: ${MIGRATE_M1_PASSWORD:?Missing migration password}
@@ -55,6 +59,10 @@ services:
     environment:
       SERVER_ADDRESS: 0.0.0.0
       PORT: 8082
+      G5_SERVICE_G1_TOKEN: ${G5_SERVICE_G1_TOKEN:?Missing G1 service credential}
+      G5_SERVICE_G3_TOKEN: ${G5_SERVICE_G3_TOKEN:?Missing G3 service credential}
+      G5_SERVICE_G4_TOKEN: ${G5_SERVICE_G4_TOKEN:?Missing G4 service credential}
+      G5_SERVICE_G6_TOKEN: ${G5_SERVICE_G6_TOKEN:?Missing G6 service credential}
       MANAGEMENT_PORT: 18082
       DATABASE_URL: jdbc:postgresql://postgres:5432/campus?currentSchema=m2
       DATABASE_PASSWORD: ${APP_M2_PASSWORD:?Missing app password}
@@ -79,6 +87,10 @@ services:
     environment:
       SERVER_ADDRESS: 0.0.0.0
       PORT: 8083
+      G5_AUTH_BASE_URL: http://approval:8082
+      G5_AUTH_ALLOW_HTTP: 'true'
+      G5_SERVICE_G3_TOKEN: ${G5_SERVICE_G3_TOKEN:?Run init-env.ps1 -AddServiceTokens}
+      G5_SERVICE_G6_TOKEN: ${G5_SERVICE_G6_TOKEN:?Run init-env.ps1 -AddServiceTokens}
       DATABASE_URL: jdbc:postgresql://postgres:5432/campus?currentSchema=m3
       DATABASE_PASSWORD: ${APP_M3_PASSWORD:?Missing app password}
       MIGRATION_PASSWORD: ${MIGRATE_M3_PASSWORD:?Missing migration password}

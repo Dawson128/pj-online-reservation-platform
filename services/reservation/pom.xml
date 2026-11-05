@@ -2,6 +2,7 @@
   <modelVersion>4.0.0</modelVersion>
   <parent><groupId>cn.edu.campus</groupId><artifactId>campus-platform</artifactId><version>0.1.0-SNAPSHOT</version><relativePath>../../pom.xml</relativePath></parent>
   <artifactId>reservation-service</artifactId>
+  <dependencies><dependency><groupId>cn.edu.campus</groupId><artifactId>auth-client</artifactId><version>${project.version}</version></dependency></dependencies>
   <build>
     <resources><resource><directory>src/main/resources</directory></resource><resource><directory>../../db/m1</directory><targetPath>db/migration</targetPath><includes><include>**/*.sql</include></includes></resource></resources>
     <plugins>
