@@ -2,6 +2,8 @@ FROM maven:3.9.11-eclipse-temurin-21@sha256:6fdc855a6ed81d288ca7ca37ac6ff5e9308b
 WORKDIR /workspace
 COPY pom.xml ./
 COPY services ./services
+COPY shared ./shared
+COPY tests/auth-acceptance/pom.xml ./tests/auth-acceptance/pom.xml
 COPY db ./db
 COPY contracts ./contracts
 COPY 需求与技术文档 ./需求与技术文档

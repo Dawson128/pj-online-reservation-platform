@@ -62,6 +62,23 @@ def main():
     assert covered == {(operation, success) for operation in operations for success in (False, True)}
     print(f'PASS: OpenAPI references and {len(samples)} complete success/failure response examples')
 
+    introspection = document['paths']['/internal/auth/introspect']['post']['requestBody']['content']['application/json']['schema']
+    request_validator = Draft202012Validator(introspection)
+    token = 's' * 43
+    request_validator.validate({'sessionToken': token})  # Existing read-only consumers remain compatible.
+    for method in ('GET', 'HEAD', 'OPTIONS', 'POST', 'PUT', 'PATCH', 'DELETE'):
+        request_validator.validate({'sessionToken': token, 'requestMethod': method, 'csrfToken': 'c' * 43})
+    for invalid in (
+        {'sessionToken': token, 'requestMethod': 'TRACE'},
+        {'sessionToken': token, 'requestMethod': None},
+        {'sessionToken': token, 'requestMethod': 1},
+        {'sessionToken': token, 'csrfToken': None},
+        {'sessionToken': token, 'csrfToken': 'short'},
+        {'sessionToken': token, 'unknown': True},
+    ):
+        assert not request_validator.is_valid(invalid), 'Invalid extended introspection request accepted by schema'
+    print('PASS: compatible G5-I01 reads, seven HTTP methods and six closed-input negatives')
+
     incoming = json.loads((ROOT / 'contracts/events/g5/IncomingNotificationEvent.schema.json').read_text(encoding='utf-8'))
     registry = json.loads((ROOT / 'contracts/events/g5/notification-registry.json').read_text(encoding='utf-8'))
     events = json.loads((ROOT / 'contracts/events/g5/examples/notification-events.json').read_text(encoding='utf-8'))

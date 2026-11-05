@@ -4,6 +4,8 @@ Vue 3 / TypeScript + Java 21 / Spring Boot 4.1.2 + PostgreSQL 17。六人维护�
 
 当前在最新 main（含 G4 契约与 SQL）上接入 G5：登录/会话、账户/院系/角色权限、全局参数，以及授权、资格、通知事实和可靠事件投递。G4 尚无真实 HTTP 提供方，预约、审批、维修等业务链及 G6 集中审计仍待各组实现。当前为开发候选，不代表生产就绪。
 
+G6已补充预约/维修服务的跨服务认证装配，复用G5真实会话并校验写请求CSRF。各模块以显式动作规则接入接口，未登记路径仍拒绝；对象范围与业务权限仍由对应模块实现。接入方法见 [共享认证客户端](shared/auth-client/README.md)。
+
 ## 环境
 - Node **24.22.1**（见 `.nvmrc`，不使用本机旧 Node 18）、npm 9 或以上。
 - Java 21、Maven 3.9.x；需要 Docker Engine/Desktop 与 Compose v2 才能执行容器验证。
@@ -19,7 +21,7 @@ node infra/scripts/smoke-compose.mjs
 ```
 打开 http://127.0.0.1:8080 。只发布本机回环入口；数据库和后端未向宿主机发布端口。此配置是开发环境 HTTP，正式环境的 HTTPS、SMTP 和部署凭据需后续配置。
 
-`.env` 自动生成七个独立随机密码，已在 Git/Docker 忽略。不要把 `docker compose config` 的完整展开结果分享或提交（含密码）；使用 `--quiet` 校验。
+`.env` 自动生成七个独立数据库密码和四个模块服务凭据，已在 Git/Docker 忽略。已有.env执行 `pwsh -File infra/scripts/init-env.ps1 -AddServiceTokens`，仅追加缺失key，不覆盖既有密码或token。不要把 `docker compose config` 的完整展开结果分享或提交（含密码）；使用 `--quiet` 校验。
 
 停止：`docker compose --env-file .env -f infra/compose.yaml down`，保留数据库卷。不要为了改密码删除数据卷；已有卷不会重跑首次初始化，密码变更应按运维流程完成。
 
